@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { videoLength } from "../engine/scene";
 import { useEditor } from "../editor/store";
 import { formatTime } from "./util";
+import { FullPreview } from "./FullPreview";
 
 // Playback zone: transport in the middle, the clock on the right, and on the
 // left the switch between "this frame" and "everything at once".
@@ -16,6 +18,7 @@ function Glyph({ d, fill = false, className = "w-5 h-5" }: { d: string; fill?: b
 const small = "w-10 h-10 grid place-items-center rounded-full text-fg hover:bg-chip-hover disabled:opacity-30";
 
 export function Player() {
+  const [full, setFull] = useState(false);
   const time = useEditor((s) => s.time);
   const preview = useEditor((s) => s.preview);
   const playing = useEditor((s) => s.playing);
@@ -69,12 +72,26 @@ export function Player() {
       </div>
 
       {/* Clock */}
-      <div className="justify-self-end text-right leading-tight">
-        <div className="text-[12px] sm:text-[14px] font-mono font-semibold tabular-nums text-fg whitespace-nowrap">
-          {formatTime(at)}<span className="text-fg-subtle"> / {formatTime(duration)}</span>
+      <div className="justify-self-end flex items-center gap-1">
+        <button
+          type="button"
+          className={small}
+          onClick={() => setFull(true)}
+          disabled={sketching}
+          aria-label="Full-screen preview"
+          title="Full-screen preview"
+        >
+          <Glyph d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+        </button>
+        <div className="text-right leading-tight">
+          <div className="text-[12px] sm:text-[14px] font-mono font-semibold tabular-nums text-fg whitespace-nowrap">
+            {formatTime(at)}<span className="text-fg-subtle"> / {formatTime(duration)}</span>
+          </div>
+          <div className="hidden sm:block text-[11px] text-fg-subtle">{kind}</div>
         </div>
-        <div className="hidden sm:block text-[11px] text-fg-subtle">{kind}</div>
       </div>
+
+      {full && <FullPreview onClose={() => setFull(false)} />}
     </section>
   );
 }

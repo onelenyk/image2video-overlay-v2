@@ -1,5 +1,6 @@
 import { useEditor, type Mode, type SketchStyle } from "../../editor/store";
 import { Button, Chip, ColorRow, ConfirmButton, Row, Slider } from "../kit";
+import { VoiceRecorder } from "../VoiceRecorder";
 import { pickFile } from "../util";
 
 const STYLES: { value: SketchStyle; label: string }[] = [
@@ -71,7 +72,10 @@ export function SketchPanel() {
         </button>
         {narration
           ? <ConfirmButton label="Remove audio" confirmLabel="Remove?" onConfirm={() => setNarration(null)} className="!h-12" />
-          : <Button onClick={pickAudio} className="!h-12">Add audio</Button>}
+          : <>
+            <Button onClick={pickAudio} className="!h-12">Add audio</Button>
+            <VoiceRecorder onDone={(file) => setNarration(file)} className="!h-12" />
+          </>}
       </div>
       <p className="text-[12px] text-fg-muted">
         {recording

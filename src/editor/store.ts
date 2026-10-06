@@ -77,6 +77,10 @@ interface State {
   closeProject: () => Promise<void>;
   renameProject: (name: string) => void;
   deleteProject: (id: string) => Promise<void>;
+  /** Rename a project from the project list (the open project uses renameProject). */
+  renameProjectById: (id: string, name: string) => Promise<void>;
+  /** Copy a project with its photo and narration; the copy appears first in the list. */
+  duplicateProject: (id: string) => Promise<void>;
 
   setScene: (scene: Scene) => void;
   patch: (id: string, changes: Partial<El>) => void;
@@ -330,6 +334,38 @@ export const useEditor = create<State>((set, get) => {
     renameProject: (name) => {
       set({ projectName: name.slice(0, 60) || "Untitled" });
       saveSoon();
+    },
+
+    renameProjectById: async (id, name) => {
+      const clean = name.trim().slice(0, 60);
+      if (!clean) return;
+      try {
+        const record = await storage.getProject(id);
+        if (!record) throw new Error("missing");
+        await storage.putProject({ ...record, name: clean, updatedAt: Date.now() });
+        await get().loadProjects();
+      } catch (error) {
+        console.warn(error);
+        get().notify("Could not rename that project.", "error");
+      }
+    },
+
+    duplicateProject: async (id) => {
+      try {
+        const record = await storage.getProject(id);
+        if (!record) throw new Error("missing");
+        const copy = newId();
+        for (const kind of ["image", "audio"] as const) {
+          const file = await storage.getFile(id, kind);
+          if (file) await storage.putFile(copy, kind, file);
+        }
+        const now = Date.now();
+        await storage.putProject({ ...record, id: copy, name: `${record.name} copy`.slice(0, 60), ownerId: currentUser().id, createdAt: now, updatedAt: now });
+        await get().loadProjects();
+      } catch (error) {
+        console.warn(error);
+        get().notify("Could not duplicate that project.", "error");
+      }
     },
 
     deleteProject: async (id) => {

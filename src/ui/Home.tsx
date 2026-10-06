@@ -38,17 +38,64 @@ function DeleteProject({ name, onConfirm }: { name: string; onConfirm: () => voi
   );
 }
 
+/** Inline rename input for a project. */
+function RenameInput({ name, onSave, onCancel }: { name: string; onSave: (newName: string) => void; onCancel: () => void }) {
+  const [value, setValue] = useState(name);
+
+  const save = () => {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== name) {
+      onSave(trimmed);
+    }
+    onCancel();
+  };
+
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => setValue(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") save();
+        if (e.key === "Escape") onCancel();
+      }}
+      onBlur={save}
+      onFocus={(e) => e.currentTarget.select()}
+      aria-label={`New name for ${name}`}
+      maxLength={60}
+      autoFocus
+      className="w-full h-9 px-2 rounded-control bg-chip border border-line text-fg text-[16px] sm:text-label"
+    />
+  );
+}
+
 /** Project list: every project is a photo plus what was added on top of it. */
 export function Home() {
-  const { projects, loadProjects, newProject, openProject, deleteProject, showScreen } = useEditor();
+  const { projects, loadProjects, newProject, openProject, deleteProject, renameProjectById, duplicateProject, showScreen } = useEditor();
   const [blank, setBlank] = useState(false);
   const [help, setHelp] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const { dropping, handlers } = useImageDrop(newProject);
   const session = useSession();
   const notify = useEditor((s) => s.notify);
   const [moving, setMoving] = useState(false);
 
   useEffect(() => { loadProjects(); }, [loadProjects, session.user.id]);
+
+  const handleRename = async (id: string, newName: string) => {
+    await renameProjectById(id, newName);
+    setRenamingId(null);
+  };
+
+  const handleDuplicate = async (id: string) => {
+    setBusyId(id);
+    try {
+      await duplicateProject(id);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const fromPhoto = async () => {
     const file = await pickFile("image/*");
@@ -156,12 +203,35 @@ export function Home() {
                   <button type="button" onClick={() => openProject(project.id)} aria-label={`Open ${project.name}`} className="relative block w-full aspect-square bg-black">
                     {project.thumb && <img src={project.thumb} alt="" className="absolute inset-0 w-full h-full object-contain" />}
                   </button>
-                  <div className="flex items-center gap-1 pl-3 pr-1.5 py-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-label font-semibold">{project.name}</p>
-                      <p className="text-caption text-fg-subtle">{new Date(project.updatedAt).toLocaleDateString()}</p>
+                  <div className="flex flex-col px-3 py-2 gap-1">
+                    {renamingId === project.id ? (
+                      <RenameInput name={project.name} onSave={(newName) => handleRename(project.id, newName)} onCancel={() => setRenamingId(null)} />
+                    ) : (
+                      <div className="min-w-0">
+                        <p className="truncate text-label font-semibold">{project.name}</p>
+                        <p className="text-caption text-fg-subtle">{new Date(project.updatedAt).toLocaleDateString()}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-1 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setRenamingId(project.id)}
+                        aria-label={`Rename ${project.name}`}
+                        className="w-9 h-9 grid place-items-center rounded-control text-fg-subtle hover:bg-chip-hover hover:text-fg"
+                      >
+                        <Icon name="edit" className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicate(project.id)}
+                        disabled={busyId === project.id}
+                        aria-label={`Duplicate ${project.name}`}
+                        className="w-9 h-9 grid place-items-center rounded-control text-fg-subtle hover:bg-chip-hover hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Icon name="copy" className="w-4 h-4" />
+                      </button>
+                      <DeleteProject name={project.name} onConfirm={() => deleteProject(project.id)} />
                     </div>
-                    <DeleteProject name={project.name} onConfirm={() => deleteProject(project.id)} />
                   </div>
                 </li>
               ))}
@@ -180,8 +250,10 @@ export function Home() {
         <footer className="pt-2 space-y-1">
           <p className="flex items-start gap-2 text-label text-fg-muted">
             <Icon name="lock" className="w-4 h-4 mt-0.5 shrink-0 text-success" />
-            {session.user.guest ? "Projects are saved in this browser only. Nothing is uploaded." : "Projects are saved in your account. Videos are rendered on this device."}
-            {session.user.guest && session.available && <button type="button" onClick={() => showScreen("signin")} className="ml-1 font-semibold text-brand">Sign in</button>}
+            <span>
+              {session.user.guest ? "Projects are saved in this browser only. Nothing is uploaded." : "Projects are saved in your account. Videos are rendered on this device."}
+              {session.user.guest && session.available && <button type="button" onClick={() => showScreen("signin")} className="ml-1.5 font-semibold text-brand">Sign in to keep them everywhere</button>}
+            </span>
           </p>
           <button type="button" onClick={() => showScreen("welcome")} className="h-11 -ml-3 px-3 rounded-control text-label font-semibold text-fg-muted hover:bg-chip-hover">
             What Plan Highlighter does

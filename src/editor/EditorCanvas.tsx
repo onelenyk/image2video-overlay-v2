@@ -608,7 +608,24 @@ export function EditorCanvas() {
       // A tap (no drag) on an already selected group goes inside it: that overlay becomes the selection
       if (finished.kind === "group" && !finished.moved) { if (finished.enter) state.select(finished.id); return; }
       if (finished.kind === "mid" || !finished.moved) return;
-      const scene = state.scene;
+      // Nothing may be dropped where it cannot be reached again: pull it back so a part stays on the stage
+      if (finished.kind === "move" || finished.kind === "group") {
+        const now = state.scene;
+        const members = now.elements.filter((item) => (finished.kind === "group" ? item.group === finished.group : item.id === finished.id));
+        const boxes = members.map((item) => boundsOf(item, now));
+        if (boxes.length) {
+          const keep = 40; // stage units that must remain inside
+          const x0 = Math.min(...boxes.map((b) => b.x)), x1 = Math.max(...boxes.map((b) => b.x + b.w));
+          const y0 = Math.min(...boxes.map((b) => b.y)), y1 = Math.max(...boxes.map((b) => b.y + b.h));
+          const dx = x1 < keep ? keep - x1 : x0 > now.stage.w - keep ? now.stage.w - keep - x0 : 0;
+          const dy = y1 < keep ? keep - y1 : y0 > now.stage.h - keep ? now.stage.h - keep - y0 : 0;
+          if (dx || dy) {
+            const ids = new Set(members.map((item) => item.id));
+            state.setScene({ ...now, elements: now.elements.map((item) => (ids.has(item.id) ? moved(item, dx, dy) : item)) });
+          }
+        }
+      }
+      const scene = store.getState().scene;
       const el = scene.elements.find((item) => item.id === finished.id);
       if (finished.kind === "end" && finished.snap && el?.type === "line") {
         state.patch(el.id, (finished.end === "a" ? { aRef: finished.snap.anchor } : { bRef: finished.snap.anchor }) as Partial<LineEl>);
