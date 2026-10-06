@@ -5,8 +5,8 @@ import { makeImage, makePath, makePreset, newScene, normalizeScene, storyLength,
 import type { Quality } from "../engine/exporter";
 import { ASPECTS, STAGE_W, type Asset, type El, type Scene, type Stage, type Vec } from "../engine/types";
 import { parseSaved, type SavedTemplate } from "../engine/template";
-import { storage } from "./db";
-import { PROJECT_FORMAT, currentUser, newId, type ProjectMeta } from "./storage";
+import { currentUser, storage, useSession } from "./session";
+import { PROJECT_FORMAT, newId, type ProjectMeta } from "./storage";
 
 export type Tool = "add" | "style" | "animate" | "timing" | "sketch" | "layers" | "canvas";
 /** What a press on the canvas does. */
@@ -27,7 +27,7 @@ export interface Narration {
 }
 
 /** "welcome" is the landing page; it is the first screen until it has been left once. */
-export type Screen = "welcome" | "home" | "editor";
+export type Screen = "welcome" | "home" | "editor" | "signin" | "account";
 
 const WELCOME_SEEN = "plan-highlighter:welcome-seen";
 // Storage can be unavailable (private mode, blocked site data); the app then simply shows the welcome again.
@@ -68,7 +68,7 @@ interface State {
   toast: { text: string; kind: "info" | "error" } | null;
 
   /** Switches between the screens outside the editor. */
-  showScreen: (screen: "welcome" | "home") => void;
+  showScreen: (screen: Exclude<Screen, "editor">) => void;
   /** Try storing the open project again after a failed save. */
   retrySave: () => Promise<void>;
   loadProjects: () => Promise<void>;
@@ -284,7 +284,10 @@ export const useEditor = create<State>((set, get) => {
     showScreen: (screen) => set({ screen }),
     retrySave: () => saveNow(),
 
-    loadProjects: async () => set({ projects: await storage.listProjects() }),
+    loadProjects: async () => {
+      try { set({ projects: await storage.listProjects() }); }
+      catch (error) { console.warn(error); get().notify("Could not load your projects. Check the connection.", "error"); }
+    },
 
     newProject: async (photo, aspect = "9:16") => {
       const id = newId();
@@ -305,7 +308,7 @@ export const useEditor = create<State>((set, get) => {
     },
 
     openProject: async (id) => {
-      const record = await storage.getProject(id);
+      const record = await storage.getProject(id).catch(() => null);
       const scene = record && normalizeScene(record.scene);
       if (!record || !scene) { get().notify("That project could not be opened.", "error"); return; }
       const photo = await storage.getFile(id, "image");
@@ -472,7 +475,9 @@ export const useEditor = create<State>((set, get) => {
 
     loadTemplates: async () => {
       // Stored data is checked like any other before it is used
-      const list = (await storage.listTemplates()).slice(0, 100).map(parseSaved).filter((t): t is SavedTemplate => t !== null);
+      let stored: unknown[] = [];
+      try { stored = await storage.listTemplates(); } catch (error) { console.warn(error); }
+      const list = stored.slice(0, 100).map(parseSaved).filter((t): t is SavedTemplate => t !== null);
       set({ savedTemplates: list });
     },
 
@@ -677,3 +682,15 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 
 // Handy for debugging from the browser console in development
 if (import.meta.env.DEV) Object.assign(window, { __editor: useEditor });
+
+// Signing in or out changes whose projects these are: show that person's
+let sessionUser = useSession.getState().user.id;
+useSession.subscribe((session) => {
+  if (!session.ready || session.user.id === sessionUser) return;
+  sessionUser = session.user.id;
+  const state = useEditor.getState();
+  if (state.screen === "editor") useEditor.setState({ screen: "home", projectId: null, preview: false, playing: false, mode: "select", tool: null });
+  useEditor.setState({ projects: [], savedTemplates: [] });
+  void state.loadProjects();
+  void state.loadTemplates();
+});

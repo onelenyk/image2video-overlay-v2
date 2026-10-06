@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { canExportOffline, exportPng, exportVideo, pickSize, type ExportResult, type Quality } from "../engine/exporter";
 import { videoLength } from "../engine/scene";
 import { narrationData, useEditor } from "../editor/store";
-import { Button, Chip, Icon, Row } from "./kit";
+import { Button, Chip, Icon, IconButton, Row } from "./kit";
 
 const QUALITIES: { value: Quality; label: string }[] = [
   { value: "720", label: "720p" },
@@ -81,27 +81,37 @@ export function ExportSheet({ onClose }: { onClose: () => void }) {
   const canShare = !!result && typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([result.blob], `a.${result.ext}`, { type: result.blob.type })] });
   const busy = progress !== null;
 
+  // The finished video gets a screen of its own: watch it, keep it, send it
+  if (result) {
+    return (
+      <div role="dialog" aria-modal="true" aria-label="Video ready" className="fixed inset-0 z-50 flex flex-col bg-ink text-fg pt-[env(safe-area-inset-top)]">
+        <header className="shrink-0 h-12 flex items-center gap-1 px-2 border-b border-line">
+          <IconButton icon="back" label="Back to export settings" onClick={() => setResult(null)} />
+          <h2 className="flex-1 text-[15px] font-semibold">Video ready</h2>
+          <button type="button" onClick={onClose} className="h-10 px-3 rounded-control text-[14px] font-semibold text-fg-muted hover:bg-chip-hover hover:text-fg">Done</button>
+        </header>
+        <div className="flex-1 min-h-0 w-full max-w-lg mx-auto flex flex-col gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <video src={result.url} controls loop autoPlay muted={!result.hasAudio} playsInline className="flex-1 min-h-0 w-full rounded-card bg-black object-contain" />
+          <p className="text-center text-[12px] text-fg-subtle font-mono">
+            {width}×{height} · {length.seconds.toFixed(1)}s · {(result.blob.size / 1048576).toFixed(1)} MB · {result.ext.toUpperCase()}{result.hasAudio ? " · with audio" : ""}
+          </p>
+          <Button primary className="w-full !h-12 !text-[15px]" onClick={() => saveBlob(result.blob, `${fileBase}.${result.ext}`)}>Save video</Button>
+          {canShare && <Button className="w-full" onClick={share}>Share</Button>}
+          <button type="button" onClick={() => setResult(null)} className="h-10 text-[13px] font-semibold text-fg-muted hover:text-fg">Change settings and export again</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-label="Export" className="w-full sm:max-w-md bg-raised rounded-t-sheet sm:rounded-sheet p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] space-y-4 max-h-[92dvh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-[17px] font-bold">{result ? "Video ready" : busy ? "Rendering…" : "Export"}</h2>
+          <h2 className="text-[17px] font-bold">{busy ? "Rendering…" : "Export"}</h2>
           <button type="button" onClick={() => { abort.current?.abort(); onClose(); }} aria-label="Close" className="w-10 h-10 grid place-items-center rounded-full hover:bg-chip-hover"><Icon name="close" /></button>
         </div>
 
-        {result ? (
-          <>
-            <video src={result.url} controls loop autoPlay muted={!result.hasAudio} playsInline className="w-full max-h-[50dvh] rounded-xl bg-black" />
-            <p className="text-[12px] text-fg-muted font-mono">
-              {(result.blob.size / 1048576).toFixed(1)} MB · {result.ext.toUpperCase()} · {width}×{height} · {length.seconds.toFixed(1)}s{result.hasAudio ? " · with audio" : ""} · rendered in {result.seconds.toFixed(1)}s
-            </p>
-            <div className="flex gap-2">
-              <Button primary className="flex-1" onClick={() => saveBlob(result.blob, `${fileBase}.${result.ext}`)}>Download</Button>
-              {canShare && <Button className="flex-1" onClick={share}>Share</Button>}
-            </div>
-            <Button className="w-full" onClick={() => setResult(null)}>Change settings</Button>
-          </>
-        ) : busy ? (
+        {busy ? (
           <>
             <div className="h-1.5 rounded-full bg-chip-active overflow-hidden">
               <div className="h-full bg-brand transition-[width] duration-100" style={{ width: `${(progress ?? 0) * 100}%` }} />

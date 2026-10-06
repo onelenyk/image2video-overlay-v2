@@ -157,5 +157,8 @@ const RAW: unknown[] = [
   ] },
 ];
 
+/** Library previews are built on a small stage, so labels and lines stay readable at tile size. */
+export const PREVIEW_W = 560, PREVIEW_H = 420;
+
 export const LIBRARY: TemplateSpec[] = RAW.map(parseTemplate).filter((t): t is TemplateSpec => t !== null);
 if (import.meta.env.DEV && LIBRARY.length !== RAW.length) console.warn(`Template library: ${RAW.length - LIBRARY.length} bundled template(s) failed validation`);

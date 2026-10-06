@@ -21,8 +21,6 @@ export interface User {
   /** Not signed in: data lives on this device only. */
   guest: boolean;
 }
-/** The one place that knows who is using the app. */
-export const currentUser = (): User => ({ id: LOCAL_USER, guest: true });
 
 export interface ProjectMeta {
   id: string;

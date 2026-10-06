@@ -99,6 +99,3 @@ export const localStore: Storage = {
     await run("templates", "readwrite", (s) => s.delete(id));
   },
 };
-
-/** The storage in use. Swapping this for a server-backed one is the whole switch to accounts. */
-export const storage: Storage = localStore;

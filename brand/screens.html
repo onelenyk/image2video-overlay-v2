@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan Highlighter: екрани з акаунтами</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 28px 20px 56px; background: #e9e9e6; color: #1a1a1a; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1160px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; font-weight: 650; }
+  .lead { margin: 0 0 28px; color: #555; max-width: 70ch; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 36px 28px; }
+  .opt h2 { font-size: 15px; margin: 0 0 2px; font-weight: 650; }
+  .opt p { margin: 0 0 12px; color: #555; font-size: 13px; min-height: 58px; }
+  .phone { width: 100%; max-width: 320px; margin: 0 auto; aspect-ratio: 320 / 660; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column; background: #000; color: #f2f2f2; box-shadow: 0 0 0 9px #1b1b1d, 0 24px 50px rgba(0,0,0,.28); font-size: 13px; }
+  .pad { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
+  .bar { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid #242426; flex: none; }
+  .bar b { flex: 1; font-size: 14px; font-weight: 600; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; } .logo i { font-style: normal; color: #ffd60a; }
+  .mark { width: 22px; height: 22px; border-radius: 5px; background: #1c1c1e; position: relative; } .mark::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 7px; height: 8px; background: #ffd60a; }
+  h3 { margin: 6px 0 0; font-size: 21px; line-height: 1.15; letter-spacing: -.02em; } h3 i { font-style: normal; color: #ffd60a; }
+  .mut { color: #aeaeb2; } .sub { color: #8e8e93; font-size: 11.5px; } .c { text-align: center; }
+  .btn { height: 42px; border-radius: 9px; display: grid; place-items: center; font-weight: 600; background: #1c1c1e; flex: none; }
+  .btn.y { background: #ffd60a; color: #000; font-weight: 700; } .btn.ghost { background: none; color: #aeaeb2; } .btn.red { color: #ff453a; }
+  .field { height: 42px; border-radius: 9px; background: #1c1c1e; border: 1px solid #242426; display: flex; align-items: center; padding: 0 12px; color: #8e8e93; flex: none; }
+  .or { display: flex; align-items: center; gap: 10px; color: #8e8e93; font-size: 11.5px; } .or::before, .or::after { content: ""; flex: 1; height: 1px; background: #242426; }
+  .card { background: #1c1c1e; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; flex: none; }
+  .card.on { box-shadow: inset 0 0 0 1.5px #ffd60a; }
+  .row { display: flex; align-items: center; gap: 10px; min-height: 40px; border-bottom: 1px solid #242426; flex: none; } .row:last-child { border: 0; } .row span:first-child { flex: 1; }
+  .ava { width: 44px; height: 44px; border-radius: 50%; background: #3a3a3c; display: grid; place-items: center; font-weight: 700; flex: none; }
+  .pill { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: #ffd60a; color: #000; } .pill.g { background: #3a3a3c; color: #f2f2f2; }
+  .sp { flex: 1; } .ok { color: #30d158; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .tile { background: #1c1c1e; border-radius: 10px; overflow: hidden; } .tile u { display: block; aspect-ratio: 1; background: #5c5c61; position: relative; } .tile u.p { background: #f1f1ee; } .tile u::after { content: ""; position: absolute; left: 22%; top: 24%; width: 36%; height: 30%; background: rgba(255,214,10,.75); border-radius: 3px; } .tile s { display: block; text-decoration: none; padding: 6px 8px; font-size: 11.5px; }
+  .hs { display: flex; gap: 8px; overflow: hidden; flex: none; } .hs .tile { flex: none; width: 96px; }
+  .video { flex: 1; min-height: 0; background: #f1f1ee; border-radius: 10px; position: relative; display: grid; place-items: center; } .video::before { content: ""; position: absolute; left: 14%; top: 14%; width: 40%; height: 34%; background: rgba(255,214,10,.7); } .video span { width: 46px; height: 46px; border-radius: 50%; background: rgba(0,0,0,.7); position: relative; } .video span::after { content: ""; position: absolute; left: 19px; top: 14px; border: 9px solid transparent; border-left: 14px solid #fff; border-right: 0; }
+  ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; color: #aeaeb2; font-size: 12px; } li::before { content: "✓ "; color: #30d158; }
+  .note { margin-top: 36px; background: #fff; border-radius: 12px; padding: 16px 18px; font-size: 13.5px; color: #333; } .note b { color: #000; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Екрани, які з'являються з акаунтами й оплатою</h1>
+  <p class="lead">Стиль «Студія», телефон. Шість екранів: що бачить гість, як входить, де акаунт, як виглядає оплата і що після експорту. Скажіть, що лишаємо, що міняємо.</p>
+  <div class="grid">
+
+    <section class="opt"><h2>1. Вхід</h2><p>Без пароля: Google або лист із посиланням. Один екран і для входу, і для реєстрації. Працювати можна й без нього.</p>
+      <div class="phone"><div class="pad">
+        <div class="logo"><span class="mark"></span>Plan <i>Highlighter</i></div>
+        <div class="sp"></div>
+        <h3>Увійдіть, щоб проєкти<br><i>були з вами всюди.</i></h3>
+        <div class="mut">Телефон, ноутбук, інший браузер.</div>
+        <div class="btn" style="background:#f2f2f2;color:#000">Продовжити з Google</div>
+        <div class="btn">Продовжити з Apple</div>
+        <div class="or">або</div>
+        <div class="field">you@example.com</div>
+        <div class="btn y">Надіслати посилання для входу</div>
+        <div class="btn ghost">Продовжити без акаунта</div>
+        <div class="sub c">Продовжуючи, ви приймаєте Умови та Політику приватності.</div>
+      </div></div></section>
+
+    <section class="opt"><h2>2. Проєкти (гість)</h2><p>Старт із заготовки прямо тут. Гість бачить тиху смужку «лише на цьому пристрої», а не стіну з вимогою входу.</p>
+      <div class="phone"><div class="bar"><div class="logo" style="flex:1"><span class="mark"></span>Plan <i>Highlighter</i></div><span class="mut">Увійти</span></div><div class="pad">
+        <div class="btn y">Новий проєкт із фото</div>
+        <div class="sub" style="text-transform:uppercase;letter-spacing:.09em;font-weight:600">Почати із заготовки</div>
+        <div class="hs"><div class="tile"><u></u><s>Room tour</s></div><div class="tile"><u></u><s>Route A → B</s></div><div class="tile"><u></u><s>Steps</s></div><div class="tile"><u></u><s>Areas</s></div></div>
+        <div class="sub" style="text-transform:uppercase;letter-spacing:.09em;font-weight:600">Проєкти</div>
+        <div class="tiles"><div class="tile"><u class="p"></u><s>Квартира 47<br><span class="sub">сьогодні</span></s></div><div class="tile"><u class="p"></u><s>Офіс, 2 поверх<br><span class="sub">вчора</span></s></div></div>
+        <div class="sp"></div>
+        <div class="card" style="flex-direction:row;align-items:center"><span style="flex:1" class="mut">Проєкти лише на цьому пристрої.</span><b style="color:#ffd60a">Увійти</b></div>
+      </div></div></section>
+
+    <section class="opt"><h2>3. Перший вхід</h2><p>Якщо на пристрої вже є проєкти гостя — питаємо один раз, чи перенести їх. Без цього люди втратять зроблене.</p>
+      <div class="phone"><div class="pad">
+        <div class="sp"></div>
+        <div class="ava" style="align-self:center">Л</div>
+        <h3 class="c">Вітаємо, Леню</h3>
+        <div class="mut c">На цьому пристрої є 3 проєкти, зроблені без акаунта.</div>
+        <div class="card"><div class="row"><span>Квартира 47</span><span class="ok">✓</span></div><div class="row"><span>Офіс, 2 поверх</span><span class="ok">✓</span></div><div class="row"><span>Маршрут до школи</span><span class="ok">✓</span></div></div>
+        <div class="btn y">Перенести в акаунт</div>
+        <div class="btn ghost">Лишити тільки тут</div>
+        <div class="sp"></div>
+      </div></div></section>
+
+    <section class="opt"><h2>4. Акаунт</h2><p>Хто я, який тариф, скільки місця, вихід і видалення даних. Видалення акаунта обов'язкове за правилами магазинів і GDPR.</p>
+      <div class="phone"><div class="bar"><span>‹</span><b>Акаунт</b></div><div class="pad">
+        <div style="display:flex;gap:12px;align-items:center"><div class="ava">Л</div><div><b>Леонід</b><div class="sub">onelenyk@gmail.com</div></div></div>
+        <div class="card"><div class="row"><span>Тариф</span><span class="pill g">Free</span></div><div class="row"><span>Проєкти</span><span class="mut">3 з 5</span></div><div class="row"><span>Синхронізація</span><span class="ok">Усе збережено</span></div></div>
+        <div class="btn y">Перейти на Pro</div>
+        <div class="card"><div class="row"><span>Мова</span><span class="mut">Українська ›</span></div><div class="row"><span>Завантажити мої дані</span><span class="mut">›</span></div><div class="row"><span>Умови й приватність</span><span class="mut">›</span></div></div>
+        <div class="sp"></div>
+        <div class="btn">Вийти</div>
+        <div class="btn ghost red">Видалити акаунт і дані</div>
+      </div></div></section>
+
+    <section class="opt"><h2>5. Pro</h2><p>Два тарифи, одна кнопка. Оплата на сторінці платіжного сервісу, картки ми не бачимо. Що саме платне — вирішуєте ви; це приклад.</p>
+      <div class="phone"><div class="bar"><span>✕</span><b>Plan Highlighter Pro</b></div><div class="pad">
+        <h3>Більше, ніж<br><i>п'ять проєктів.</i></h3>
+        <ul><li>Необмежено проєктів і синхронізація</li><li>Експорт 4K без водяного знака</li><li>Власні заготовки між пристроями</li><li>Запис голосу в застосунку</li></ul>
+        <div class="card on"><div style="display:flex;align-items:center;gap:8px"><b style="flex:1">Рік</b><span class="pill">−40%</span></div><div><b style="font-size:19px">$36</b> <span class="sub">на рік · $3 на місяць</span></div></div>
+        <div class="card"><b>Місяць</b><div><b style="font-size:19px">$5</b> <span class="sub">на місяць</span></div></div>
+        <div class="sp"></div>
+        <div class="btn y">Продовжити до оплати</div>
+        <div class="sub c">Скасувати можна будь-коли в акаунті.</div>
+      </div></div></section>
+
+    <section class="opt"><h2>6. Після експорту</h2><p>Окремий крок замість хвоста вікна експорту: подивитись, зберегти, поділитись, повернутись до роботи.</p>
+      <div class="phone"><div class="bar"><span>‹</span><b>Відео готове</b><span class="mut">Готово</span></div><div class="pad">
+        <div class="video"><span></span></div>
+        <div class="sub c">1080 × 1440 · 0:12 · 4,1 МБ · зі звуком</div>
+        <div class="btn y">Зберегти відео</div>
+        <div class="btn">Поділитись</div>
+        <div class="btn ghost">Змінити налаштування й експортувати ще раз</div>
+      </div></div></section>
+
+  </div>
+  <div class="note"><b>Що тут вирішено за вас і можна змінити:</b> вхід без пароля (Google, Apple, лист із посиланням); гість може працювати без входу; обмеження безплатного тарифу — 5 проєктів; ціни $5 / $36 — умовні; мова інтерфейсу в макетах українська, у застосунку зараз англійська.</div>
+</div>
+</body>
+</html>
