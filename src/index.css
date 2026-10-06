@@ -1,172 +1,186 @@
 @import "tailwindcss";
 
-body {
-  background-color: #0f172a;
-  color: #f8fafc;
-  overflow-x: hidden;
+/*
+ * Plan Highlighter design tokens: "Studio".
+ *
+ * Neutral black, like a phone's own photo editor: the interface steps back and
+ * the picture is the only bright thing on screen. Greys are neutral (no blue
+ * tint). Yellow marks what is selected or the one main action; red is only for
+ * recording and destructive actions. No borders or shadows for decoration:
+ * surfaces are separated by a step in grey or a hairline.
+ *
+ * Contrast on black: fg 18.4, fg-muted 9.6, fg-subtle 6.5; on raised (#1c1c1e)
+ * fg-subtle is 5.4 (AA needs 4.5). Yellow always carries black text.
+ */
+@theme {
+  /* Surfaces, darkest first */
+  --color-ink: #000000; /* page background */
+  --color-panel: #0e0e0f; /* bars, cards */
+  --color-raised: #1c1c1e; /* sheets, things above a panel */
+  --color-line: #242426; /* borders and dividers */
+
+  /* Text levels */
+  --color-fg: #f2f2f2;
+  --color-fg-muted: #aeaeb2; /* secondary copy */
+  --color-fg-subtle: #8e8e93; /* captions, metadata */
+
+  /* Brand */
+  --color-brand: #ffd60a; /* highlighter yellow: primary actions, focus ring */
+  --color-brand-hover: #ffe14d;
+  --color-on-brand: #000000; /* text and icons on yellow */
+  --color-accent: #ff453a; /* pen coral: sketched marks, arrows */
+
+  --color-chip: #1c1c1e; /* neutral buttons and chips on paper */
+  --color-chip-hover: #2c2c2e;
+  --color-chip-active: #3a3a3c; /* selected segment, selected row */
+  --color-stage: #000000; /* cutting mat behind the photo */
+  --color-mint: #30d158;
+  --color-sky: #0a84ff; /* focus ring, links */
+
+  /* Status */
+  --color-success: #30d158;
+  --color-warn: #ff9f0a;
+  --color-danger: #ff453a;
+
+  /* Radii. These equal Tailwind's xl / 2xl / 3xl, which the editor panels already use. */
+  --radius-control: 0.5625rem; /* buttons, inputs */
+  --radius-card: 0.75rem; /* cards, tiles */
+  --radius-sheet: 1.25rem; /* bottom sheets, dialogs */
+
+  /* Type scale: system fonts only, nothing is fetched at runtime. Body copy is never below 14px. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --text-display: 2.25rem; /* 36px, landing headline */
+  --text-display--line-height: 1.08;
+  --text-display--letter-spacing: -0.03em;
+  --text-title: 1.375rem; /* 22px, screen and sheet titles */
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.015em;
+  --text-heading: 1.0625rem; /* 17px, block headings */
+  --text-heading--line-height: 1.35;
+  --text-body: 0.9375rem; /* 15px, running text */
+  --text-body--line-height: 1.55;
+  --text-label: 0.875rem; /* 14px, buttons and secondary text */
+  --text-label--line-height: 1.4;
+  --text-caption: 0.75rem; /* 12px, metadata only */
+  --text-caption--line-height: 1.35;
 }
 
-.canvas-wrapper {
-  width: 100%;
-  max-width: 380px;
-  margin: 0 auto;
-  position: relative;
-  background-color: #1e293b;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  border: 1px solid #475569;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  aspect-ratio: 9/16;
-}
 
-#main-canvas {
-  width: 100%;
+html,
+body,
+#root {
   height: 100%;
-  background-size: 100% 100%;
-  background-position: center;
-  background-repeat: no-repeat;
-  position: relative;
 }
 
-/* Elements */
-.draggable {
-  position: absolute;
-  cursor: move;
-  touch-action: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid transparent;
+body {
+  margin: 0;
+  background-color: var(--color-ink);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
 }
 
-.draggable.active {
-  border-color: white;
-  border-style: dashed;
+button {
+  cursor: pointer;
+  touch-action: manipulation; /* no double-tap zoom delay */
 }
 
-.overlay-box {
-  background-color: rgba(239, 68, 68, 0.4);
-  border: 2px solid #ef4444;
-  transition: opacity 0.4s ease, transform 0.2s ease;
-  z-index: 10;
+button:disabled {
+  cursor: default;
 }
 
-.overlay-box.active {
-  border-color: white;
-  border-style: dashed;
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
 }
 
-.arrow-instance {
-  width: 60px;
-  height: 60px;
-  color: #ef4444;
+.no-scrollbar {
+  scrollbar-width: none;
 }
 
-.resize-handle {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  background: white;
-  border: 2px solid #000;
-  border-radius: 50%;
-  bottom: -8px;
-  right: -8px;
-  cursor: nwse-resize;
-  z-index: 10;
+.no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-.active .resize-handle {
-  display: block;
-}
-
-/* Animation Classes */
-.hidden-box {
-  opacity: 0 !important;
-  pointer-events: none;
-}
-
-/* 
- * CSS animation classes removed - all animations are now handled via JavaScript
- * in src/utils/animation.ts and src/hooks/useAnimation.ts
- * This ensures consistency between preview and recorded video.
- */
-
-.taking-screenshot .resize-handle,
-.is-recording .resize-handle {
-  display: none !important;
-}
-.taking-screenshot .active,
-.is-recording .active {
-  border-color: transparent !important;
-  box-shadow: none !important;
-}
-.is-recording #recording-status {
-  display: flex;
-}
-/* Hide size badge during recording/screenshot */
-.taking-screenshot #size-badge,
-.is-recording #size-badge {
-  display: none !important;
-}
-/* Hide the info overlay at bottom during recording */
-.taking-screenshot .canvas-info-overlay,
-.is-recording .canvas-info-overlay {
-  display: none !important;
-}
-
-/* UI Overlays */
-#size-badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: rgba(15, 23, 42, 0.8);
-  color: #94a3b8;
-  font-size: 10px;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  z-index: 50;
-  pointer-events: none;
-  font-family: monospace;
-}
-
-.val-badge {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #ef4444;
-  font-weight: 700;
-  font-size: 10px;
-  text-align: right;
-}
-
-.control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.125rem;
-}
-
+/* Sliders: a thick track and a thumb large enough for a finger */
 input[type="range"] {
-  height: 4px;
-  background: #334155;
-  border-radius: 8px;
   appearance: none;
-  width: 100%;
+  -webkit-appearance: none;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 4px;
+  /* --fill is set inline by the Slider component */
+  background: linear-gradient(to right, var(--color-brand) var(--fill, 0%), #2c2c2e var(--fill, 0%));
+}
+
+input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--color-brand);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 4px;
+  background: #2c2c2e;
 }
 
 input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  background: #ef4444;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -10px;
   border-radius: 50%;
-  cursor: pointer;
-  border: 2px solid #1e293b;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+/*
+ * Welcome illustration: the marks appear in the order you would draw them.
+ * Both animations run *from* a hidden state, so with animations off (reduced
+ * motion, below) the finished drawing is simply there.
+ */
+.hero-fade {
+  animation: hero-fade 0.5s ease-out backwards;
+}
+
+.hero-draw {
+  stroke-dasharray: 1;
+  animation: hero-draw 0.6s ease-out backwards;
+}
+
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes hero-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

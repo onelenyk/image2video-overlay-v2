@@ -1,0 +1,320 @@
+import { useMemo, type ReactNode } from "react";
+import { prepareSvg } from "../../engine/renderer";
+import { makePreset, type Preset } from "../../engine/scene";
+import type { Anim, AnimType, Asset, BoxEl, El, LineEl } from "../../engine/types";
+import { useEditor, type Mode } from "../../editor/store";
+import { MiniPreview, ScenePreview } from "../MiniPreview";
+import { MARKERS } from "../markers";
+import { buildSaved, buildTemplate, type Built } from "../../engine/template";
+import { LIBRARY } from "../templateLibrary";
+import { IconSearch } from "./IconSearch";
+import { pickFile } from "../util";
+
+// Add overlay: ready-made overlays, grouped into sections. Anything drawn by
+// hand lives in the Draw tool instead.
+// On a phone one section is shown at a time (tabs on top); in the desktop side
+// column all sections are listed under their headings.
+
+type SectionId = "templates" | "zones" | "arrows" | "text" | "icons" | "animated" | "images";
+
+const SECTIONS: { id: SectionId; label: string }[] = [
+  { id: "templates", label: "Templates" },
+  { id: "zones", label: "Zones" },
+  { id: "arrows", label: "Arrows" },
+  { id: "text", label: "Text" },
+  { id: "icons", label: "Icons" },
+  { id: "animated", label: "Animated" },
+  { id: "images", label: "Images" },
+];
+
+const YELLOW = "#ffd60a";
+const anim = (type: AnimType, duration = 1.5): Anim => ({ enabled: true, type, duration, delay: 0, intensity: 1 });
+
+/** Small drawing on a tile: outlines in the text colour, fills in highlighter yellow. */
+function Glyph({ children }: { children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 32 24" className="w-9 h-7" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {children}
+    </svg>
+  );
+}
+
+// Library previews are built on a small stage, so labels and lines stay readable at tile size
+const PREVIEW_W = 560, PREVIEW_H = 420;
+
+// What a template sits on in its tile: a hint of a plan or a map, in neutral grey
+const backdrop = (lines: string) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 120' fill='none' stroke='#77777c' stroke-width='1.6' stroke-linecap='round'>${lines}</svg>`)}")`;
+const BACKDROPS: Record<string, string> = {
+  Interiors: backdrop("<path d='M14 12h132v96H14zM78 12v34M78 62v46M14 62h28M56 62h56M126 62h20'/>"),
+  Maps: backdrop("<path d='M-4 34h168M-4 84h168M44-4v128M112-4v128M-4 118L60 60l50-28 58-40' stroke-width='5' stroke='#6c6c71'/>"),
+};
+
+/** A template tile: the whole set playing on a small stage, with its name. */
+function TemplateTile({ name, note, built, group, width = PREVIEW_W, height = PREVIEW_H, onClick, onDelete }: { name: string; note: string; built: Built; group?: string; width?: number; height?: number; onClick: () => void; onDelete?: () => void }) {
+  // The tile opens on the finished picture, holds it, then replays how it builds up
+  const story = Math.max(0.5, ...built.elements.map((el) => (el.type === "path" && el.sketch ? el.sketch.start + (el.sketch.times.at(-1) ?? 0) : el.time?.start ?? 0)));
+  return (
+    <div className="relative shrink-0 w-[150px] lg:w-auto">
+      <button type="button" onClick={onClick} title={note} className="block w-full rounded-card bg-chip hover:bg-chip-hover active:bg-chip-active overflow-hidden text-left transition-colors">
+        <span className="block m-1.5 rounded-lg bg-[#5c5c61] bg-cover bg-center overflow-hidden" style={{ backgroundImage: group ? BACKDROPS[group] : undefined }}>
+          <ScenePreview elements={built.elements} assets={built.assets} width={width} height={height} seconds={story + 3} startAt={story + 0.5} className="block w-full aspect-[4/3]" />
+        </span>
+        <span className="block px-2.5 pb-2">
+          <span className="block text-[13px] font-semibold text-fg truncate">{name}</span>
+          <span className="block text-[11px] text-fg-subtle truncate">{note}</span>
+        </span>
+      </button>
+      {onDelete && (
+        <button type="button" onClick={onDelete} aria-label={`Delete template ${name}`} title="Delete this template" className="absolute top-2.5 right-2.5 w-7 h-7 grid place-items-center rounded-full bg-black/70 text-fg hover:text-danger">
+          <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The same overlay, trimmed so it reads at thumbnail size: shorter lines, no stray caption. */
+function forTile(el: El): El {
+  if (el.type === "line") return { ...el, a: { x: 0, y: 0 }, b: { x: Math.max(150, el.width * 9), y: 0 }, width: Math.max(el.width, 14) };
+  if (el.type === "point") return { ...el, r: 34, label: { ...el.label, show: false } };
+  if (el.type === "box" && el.opacity === 0 && el.borderWidth === 0) return { ...el, w: Math.max(120, el.label.text.length * el.label.size * 0.62), h: el.label.size * 1.5 };
+  return el;
+}
+
+const tileClass = "shrink-0 w-[84px] lg:w-auto h-[78px] rounded-card bg-chip hover:bg-chip-hover active:bg-chip-active flex flex-col items-center justify-end overflow-hidden text-fg transition-colors";
+const tileLabel = "w-full px-1.5 pb-1.5 pt-0.5 truncate text-center text-[11.5px] font-medium text-fg-muted";
+
+/** A tile with a hand-made glyph: tools and things that have no overlay to preview yet. */
+function Tile({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className={tileClass}>
+      <span className="flex-1 grid place-items-center">{children}</span>
+      <span className={tileLabel}>{label}</span>
+    </button>
+  );
+}
+
+/** A tile that shows the overlay itself, drawn (and animated) by the real renderer. */
+function OverlayTile({ label, el, onClick }: { label: string; el: El; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={tileClass}>
+      <MiniPreview el={el} animate={el.anim.enabled} className="block w-full flex-1 min-h-0" />
+      <span className={tileLabel}>{label}</span>
+    </button>
+  );
+}
+
+const fill = { fill: YELLOW, fillOpacity: 0.45 } as const;
+
+export function AddPanel() {
+  const { scene, assets, addElement, addAssetImage, addGroup, setMode, setTool, patch, commit, notify, play, seek, savedTemplates, saveTemplate, deleteTemplate } = useEditor();
+  // Kept in the store so reopening the panel returns to the section used last
+  const section = (useEditor((state) => state.addSection) as SectionId | null) ?? "zones";
+  const setSection = useEditor((state) => state.setAddSection);
+
+  /** A preset element with some fields changed; `then` picks which tool opens next. */
+  const add = (kind: Preset, changes: Partial<BoxEl> | Partial<LineEl> | Partial<El> = {}, then: "style" | "animate" = "style") => {
+    addElement({ ...makePreset(scene, kind), ...changes } as El);
+    setTool(then);
+    if (then === "animate") play();
+  };
+  /** Tile for a preset overlay: what you see on the tile is what gets added. */
+  const overlay = (label: string, kind: Preset, changes: Partial<BoxEl> | Partial<LineEl> | Partial<El> = {}, then: "style" | "animate" = "style") => (
+    <OverlayTile key={label} label={label} el={forTile({ ...makePreset(scene, kind), ...changes } as El)} onClick={() => add(kind, changes, then)} />
+  );
+  const box = (changes: Partial<BoxEl> = {}, label?: Partial<BoxEl["label"]>): Partial<BoxEl> => {
+    const base = makePreset(scene, "rect") as BoxEl;
+    return { ...changes, label: { ...base.label, ...label } };
+  };
+  const tool = (mode: Mode) => {
+    setMode(mode);
+    setTool(null); // free the screen for drawing
+  };
+
+  const addAsset = (asset: Asset, animation?: Anim) => {
+    addAssetImage(asset);
+    const id = useEditor.getState().selectedId;
+    if (animation && id) { patch(id, { anim: animation }); commit(); }
+    setTool(animation ? "animate" : "style");
+    if (animation) play();
+  };
+  const addMarker = (svg: string, animation?: Anim) => {
+    const prepared = prepareSvg(svg);
+    if (prepared) addAsset({ format: "svg", data: prepared.markup, aspect: prepared.aspect }, animation);
+  };
+  const upload = async () => {
+    const file = await pickFile("image/png,image/jpeg,image/webp,image/svg+xml,.svg");
+    if (!file) return;
+    if (file.type === "image/svg+xml" || /\.svg$/i.test(file.name)) {
+      const prepared = prepareSvg(await file.text());
+      if (!prepared) { notify("That SVG could not be read.", "error"); return; }
+      addAsset({ format: "svg", data: prepared.markup, aspect: prepared.aspect });
+      return;
+    }
+    const data = await new Promise<string>((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result as string); r.readAsDataURL(file); });
+    const img = new Image();
+    await new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; img.src = data; });
+    if (!img.naturalWidth) { notify("That image could not be read.", "error"); return; }
+    addAsset({ format: "png", data, aspect: img.naturalWidth / img.naturalHeight });
+  };
+
+  // Next free number for badges: 1, 2, 3…
+  const badgeNumber = () => {
+    const used = new Set(scene.elements.map((el) => (el.type === "box" ? el.label.text : "")));
+    let n = 1;
+    while (used.has(String(n))) n++;
+    return String(n);
+  };
+  const pin = MARKERS.find((m) => m.name === "Pin")!;
+  const used = Object.entries(assets);
+
+  // A template lands spread over the photo as one group and plays straight away
+  const applyBuilt = (name: string, built: Built) => {
+    addGroup(name, built.elements, built.assets);
+    if (!window.matchMedia("(min-width: 1024px)").matches) setTool(null);
+    seek(0);
+    play();
+    notify(`${name} added as a group. Drag it into place; tap a piece again to edit it.`);
+  };
+  // Previews are built once per template; the real thing is built for the actual stage on tap
+  const library = useMemo(() => LIBRARY.map((spec) => ({ spec, preview: buildTemplate(spec, PREVIEW_W, PREVIEW_H) })), []);
+  const mine = useMemo(() => savedTemplates.map((saved) => ({ saved, preview: buildSaved(saved, saved.w, saved.h) })), [savedTemplates]);
+  const templateGroups = [...new Set(library.map((item) => item.spec.group))];
+  const saveAll = () => {
+    if (!scene.elements.length) { notify("Add some overlays first, then save them as a template."); return; }
+    void saveTemplate(`My template ${savedTemplates.length + 1}`, null);
+  };
+
+  const content: Record<SectionId, ReactNode> = {
+    templates: null, // rendered separately below: larger tiles, grouped by use
+    zones: (
+      <>
+        {overlay("Zone", "rect")}
+        {overlay("Rounded", "rect", { radius: 36 })}
+        {overlay("Ellipse", "ellipse")}
+        {overlay("Outline", "rect", box({ opacity: 0, borderWidth: 8 }, { show: false }))}
+        {overlay("Dashed", "rect", box({ opacity: 0.12, borderWidth: 6, dashed: true }, { show: false }))}
+        {overlay("Circle", "ellipse", box({ w: 220, h: 220, opacity: 0, borderWidth: 8 }, { show: false }))}
+        <Tile label="Polygon" onClick={() => tool("polygon")}><Glyph><path d="M16 3l10 7-4 11H10L6 10z" {...fill} /></Glyph></Tile>
+      </>
+    ),
+    arrows: (
+      <>
+        {overlay("Arrow", "arrow")}
+        {overlay("Double", "arrow", { arrowA: true })}
+        {overlay("Dashed", "arrow", { dashed: true })}
+        {overlay("Thick", "arrow", { width: 22 })}
+        {overlay("Line", "line")}
+        {overlay("Dashed line", "line", { dashed: true })}
+        {overlay("Point", "point")}
+      </>
+    ),
+    text: (
+      <>
+        {overlay("Text", "text")}
+        {overlay("Title", "text", box({ w: 620, h: 150 }, { text: "Title", size: 110 }))}
+        {overlay("Label", "rect", box({ w: 300, h: 90, radius: 45, opacity: 1, borderWidth: 0, color: "#111827" }, { text: "Label", size: 40 }))}
+        {overlay("Caption", "rect", box({ w: 640, h: 120, radius: 16, opacity: 0.75, borderWidth: 0, color: "#000000" }, { text: "Caption", size: 44 }))}
+        {overlay("Number", "ellipse", box({ w: 96, h: 96, opacity: 1, borderWidth: 0, color: YELLOW }, { text: badgeNumber(), size: 52, color: "#000000" }))}
+        {overlay("Sticky", "rect", box({ w: 300, h: 220, radius: 10, opacity: 1, borderWidth: 0, color: YELLOW }, { text: "Note", size: 44, color: "#000000" }))}
+      </>
+    ),
+    icons: (
+      <>
+        {MARKERS.map((marker) => (
+          <Tile key={marker.name} label={marker.name} onClick={() => addMarker(marker.svg)}>
+            <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor" aria-hidden><path d={marker.path} /></svg>
+          </Tile>
+        ))}
+      </>
+    ),
+    animated: (
+      <>
+        {overlay("Pulsing zone", "rect", { anim: anim("pulse") }, "animate")}
+        {overlay("Spotlight", "ellipse", { ...box({ w: 320, h: 320, opacity: 0, borderWidth: 6 }, { show: false }), anim: anim("spotlight", 2) }, "animate")}
+        {overlay("Marching", "rect", { ...box({ opacity: 0.1, borderWidth: 6 }, { show: false }), anim: anim("ants", 2) }, "animate")}
+        {overlay("Drawn arrow", "arrow", { anim: anim("draw", 2.5) }, "animate")}
+        {overlay("Train line", "line", { anim: anim("train", 2) }, "animate")}
+        {overlay("Ripple point", "point", { anim: anim("ripple", 2) }, "animate")}
+        <Tile label="Bouncing pin" onClick={() => addMarker(pin.svg, anim("bounce", 1))}>
+          <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor" aria-hidden><path d={pin.path} /></svg>
+        </Tile>
+        {overlay("Pop label", "rect", { ...box({ w: 300, h: 90, radius: 45, opacity: 1, borderWidth: 0, color: YELLOW }, { text: "Look here", size: 40, color: "#000000" }), anim: anim("pop", 3) }, "animate")}
+      </>
+    ),
+    images: (
+      <>
+        <Tile label="Upload" onClick={upload}><Glyph><path d="M16 16V5M11 10l5-5 5 5M6 16v4h20v-4" /></Glyph></Tile>
+        {used.map(([key, asset]) => (
+          <Tile key={key} label="Reuse" onClick={() => addAsset(asset)}>
+            <img
+              src={asset.format === "svg" ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(asset.data)}` : asset.data}
+              alt=""
+              className={`w-9 h-7 object-contain ${asset.format === "svg" ? "invert" : ""}`}
+            />
+          </Tile>
+        ))}
+      </>
+    ),
+  };
+
+  return (
+    <div className="space-y-2 lg:space-y-4">
+      {/* Section tabs: phone only */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 lg:hidden" role="tablist" aria-label="Kinds of overlay">
+        {SECTIONS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={section === item.id}
+            onClick={() => setSection(item.id)}
+            className={`shrink-0 h-9 px-3 rounded-full text-[13px] font-semibold whitespace-nowrap ${section === item.id ? "bg-fg text-ink" : "text-fg-muted hover:text-fg"}`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {SECTIONS.map((item) => (
+        <section key={item.id} aria-label={item.label} className={section === item.id ? "" : "hidden lg:block"}>
+          <h3 className="hidden lg:block mb-2 text-[11px] font-semibold uppercase tracking-[0.09em] text-fg-subtle">{item.label}</h3>
+          {item.id === "templates" ? (
+            <>
+              {/* Phone: one scrolling row */}
+              <div className="lg:hidden flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+                {mine.map(({ saved, preview }) => <TemplateTile key={saved.id} name={saved.name} note="My template" built={preview} width={saved.w} height={saved.h} onClick={() => applyBuilt(saved.name, buildSaved(saved, scene.stage.w, scene.stage.h))} onDelete={() => deleteTemplate(saved.id)} />)}
+                {library.map(({ spec, preview }) => <TemplateTile key={spec.id} name={spec.name} note={spec.group} built={preview} group={spec.group} onClick={() => applyBuilt(spec.name, buildTemplate(spec, scene.stage.w, scene.stage.h))} />)}
+              </div>
+              {/* Wide: grouped by what they are for */}
+              <div className="hidden lg:block space-y-3">
+                {mine.length > 0 && (
+                  <div>
+                    <h4 className="mb-1.5 text-[12px] font-medium text-fg-muted">My templates</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {mine.map(({ saved, preview }) => <TemplateTile key={saved.id} name={saved.name} note={`${saved.elements.length} overlays`} built={preview} width={saved.w} height={saved.h} onClick={() => applyBuilt(saved.name, buildSaved(saved, scene.stage.w, scene.stage.h))} onDelete={() => deleteTemplate(saved.id)} />)}
+                    </div>
+                  </div>
+                )}
+                {templateGroups.map((group) => (
+                  <div key={group}>
+                    <h4 className="mb-1.5 text-[12px] font-medium text-fg-muted">{group}</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {library.filter((entry) => entry.spec.group === group).map(({ spec, preview }) => <TemplateTile key={spec.id} name={spec.name} note={spec.hint} built={preview} group={spec.group} onClick={() => applyBuilt(spec.name, buildTemplate(spec, scene.stage.w, scene.stage.h))} />)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={saveAll} className="mt-2 w-full h-10 rounded-control bg-chip hover:bg-chip-hover text-[13px] font-semibold text-fg">Save current overlays as a template</button>
+            </>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 lg:overflow-visible">
+              {content[item.id]}
+            </div>
+          )}
+          {item.id === "icons" && <div className="mt-3"><IconSearch onPick={(svg) => addMarker(svg)} /></div>}
+        </section>
+      ))}
+    </div>
+  );
+}

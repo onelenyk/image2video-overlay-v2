@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan Highlighter: варіанти стилю</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 28px 20px 48px; background: #e9e9e6; color: #1a1a1a; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 4px; font-weight: 650; }
+  .lead { margin: 0 0 24px; color: #555; max-width: 60ch; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; max-width: 1120px; margin: 0 auto; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  .opt h2 { font-size: 16px; margin: 0 0 2px; font-weight: 650; }
+  .opt p { margin: 0 0 12px; color: #555; font-size: 13.5px; min-height: 60px; }
+
+  /* ---- phone mock, themed with variables ---- */
+  .phone { width: 100%; max-width: 330px; margin: 0 auto; aspect-ratio: 330 / 700; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column;
+    background: var(--bg); color: var(--fg); font-family: var(--font); box-shadow: 0 0 0 9px #1b1b1d, 0 24px 50px rgba(0,0,0,.28); }
+  .top { height: 46px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: var(--rule); }
+  .top .name { flex: 1; font: var(--title); letter-spacing: var(--title-track, 0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ico { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+  .export { font: 600 12.5px var(--font); padding: 6px 12px; border-radius: var(--r-btn); background: var(--cta-bg); color: var(--cta-fg); border: var(--cta-border, 0); }
+  .stage { flex: 1; min-height: 0; background: var(--stage); display: grid; place-items: center; padding: 12px; overflow: hidden; }
+  .plan { height: 100%; max-width: 100%; aspect-ratio: 3/4; background: #f7f7f4; position: relative; box-shadow: var(--plan-shadow); }
+  .plan svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .player { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 8px 14px 6px; border-top: var(--rule); }
+  .seg { justify-self: start; display: flex; font: 600 11px var(--font); border-radius: var(--r-seg); background: var(--seg-bg); padding: 2px; border: var(--seg-border, 0); }
+  .seg span { padding: 4px 9px; border-radius: var(--r-seg); color: var(--muted); }
+  .seg .on { background: var(--seg-on-bg); color: var(--seg-on-fg); }
+  .play { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--play-bg); color: var(--play-fg); border: var(--play-border, 0); }
+  .play svg { width: 16px; height: 16px; fill: currentColor; }
+  .time { justify-self: end; font: var(--num); color: var(--fg); }
+  .time i { font-style: normal; color: var(--muted); }
+  .strip { margin: 0 14px; height: 34px; border-radius: var(--r-strip); position: relative; overflow: hidden; display: flex; outline: var(--strip-outline); }
+  .strip b { flex: 1; background: #f1f1ee; border-right: 1px solid rgba(0,0,0,.25); position: relative; }
+  .strip b::after { content: ""; position: absolute; left: 22%; top: 20%; width: 34%; height: 38%; background: rgba(239,68,68,.35); }
+  .strip .head { position: absolute; top: -2px; bottom: -2px; left: 46%; width: 2px; background: var(--accent); }
+  .tracks { padding: 8px 14px 4px; display: grid; gap: 4px; }
+  .tr { height: 14px; border-radius: var(--r-track); position: relative; background: var(--track-bg); }
+  .tr u { position: absolute; top: 0; bottom: 0; border-radius: var(--r-track); text-decoration: none; }
+  .label { padding: 8px 14px 0; font: var(--caps); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .chips { display: flex; gap: 6px; padding: 8px 14px 10px; overflow: hidden; }
+  .chip { font: 600 12px var(--font); padding: 7px 11px; border-radius: var(--r-chip); background: var(--chip-bg); color: var(--fg); border: var(--chip-border, 0); white-space: nowrap; }
+  .chip.on { background: var(--chip-on-bg); color: var(--chip-on-fg); border: var(--chip-on-border, var(--chip-border, 0)); }
+  .slider { display: flex; align-items: center; gap: 10px; padding: 6px 14px 2px; font: 12px var(--font); color: var(--muted); }
+  .slider .bar { flex: 1; height: var(--bar-h); border-radius: 9px; background: var(--bar-bg); position: relative; }
+  .slider .bar::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 42%; border-radius: 9px; background: var(--bar-fill); }
+  .slider .bar::after { content: ""; position: absolute; left: 42%; top: 50%; width: var(--knob); height: var(--knob); border-radius: 50%; transform: translate(-50%,-50%); background: var(--knob-bg); border: var(--knob-border, 0); box-shadow: var(--knob-shadow, none); }
+  .slider span:last-child { font: var(--num); color: var(--fg); }
+  .tools { display: flex; justify-content: space-around; padding: 8px 6px 14px; border-top: var(--rule); }
+  .tool { display: grid; justify-items: center; gap: 3px; font: 600 9.5px var(--font); color: var(--muted); padding: 5px 6px; border-radius: 9px; }
+  .tool.on { color: var(--tool-on); background: var(--tool-on-bg, transparent); }
+  .tool.on::after { content: ""; display: var(--tool-mark, none); width: 14px; height: 2.5px; border-radius: 2px; background: var(--accent); margin-top: -1px; }
+
+  /* A. Studio: neutral black, like a phone's own photo editor */
+  .a { --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; --bg: #000; --fg: #f2f2f2; --muted: #8e8e93; --accent: #ffd60a; --stage: #000;
+    --rule: 1px solid #1c1c1e; --title: 600 15px var(--font); --num: 500 12px ui-monospace, "SF Mono", Menlo, monospace; --caps: 600 10px var(--font);
+    --cta-bg: #ffd60a; --cta-fg: #000; --r-btn: 999px; --plan-shadow: none;
+    --seg-bg: #1c1c1e; --r-seg: 8px; --seg-on-bg: #3a3a3c; --seg-on-fg: #fff; --play-bg: transparent; --play-fg: #fff;
+    --r-strip: 6px; --strip-outline: 2px solid #ffd60a; --r-track: 4px; --track-bg: #151517;
+    --chip-bg: #1c1c1e; --r-chip: 9px; --chip-on-bg: #f2f2f2; --chip-on-fg: #000;
+    --bar-h: 3px; --bar-bg: #2c2c2e; --bar-fill: #ffd60a; --knob: 18px; --knob-bg: #fff; --tool-on: #ffd60a; }
+  /* B. Drafting: light, hairlines, ink, one marker stroke */
+  .b { --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; --bg: #f7f6f2; --fg: #1d1d1b; --muted: #8a8780; --accent: #e5484d; --stage: #eceae4;
+    --rule: 1px solid #dcd9d1; --title: 600 14.5px var(--font); --num: 500 12px ui-monospace, "SF Mono", Menlo, monospace; --caps: 600 10px ui-monospace, "SF Mono", Menlo, monospace;
+    --cta-bg: #1d1d1b; --cta-fg: #f7f6f2; --r-btn: 7px; --plan-shadow: 0 0 0 1px #cfccc3;
+    --seg-bg: transparent; --seg-border: 1px solid #cfccc3; --r-seg: 7px; --seg-on-bg: #1d1d1b; --seg-on-fg: #f7f6f2; --play-bg: #1d1d1b; --play-fg: #f7f6f2;
+    --r-strip: 3px; --strip-outline: 1px solid #1d1d1b; --r-track: 2px; --track-bg: #e9e6de;
+    --chip-bg: transparent; --chip-border: 1px solid #cfccc3; --r-chip: 7px; --chip-on-bg: #ffe14d; --chip-on-fg: #1d1d1b; --chip-on-border: 1px solid #1d1d1b;
+    --bar-h: 2px; --bar-bg: #cfccc3; --bar-fill: #1d1d1b; --knob: 14px; --knob-bg: #f7f6f2; --knob-border: 1.5px solid #1d1d1b; --tool-on: #1d1d1b; --tool-mark: block; }
+  .b .tool.on::after { background: #ffd21f; height: 4px; width: 22px; }
+  /* C. Editorial: warm white, serif titles, soft surfaces, quiet colour */
+  .c { --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; --bg: #fbfaf7; --fg: #23201c; --muted: #8b857b; --accent: #c2410c; --stage: #23201c;
+    --rule: 1px solid #ece8df; --title: 500 17px ui-serif, "New York", "Iowan Old Style", Georgia, serif; --title-track: -.01em; --num: 500 12px var(--font); --caps: 600 10px var(--font);
+    --cta-bg: #23201c; --cta-fg: #fbfaf7; --r-btn: 999px; --plan-shadow: 0 10px 30px rgba(0,0,0,.35);
+    --seg-bg: #f0ede6; --r-seg: 999px; --seg-on-bg: #fff; --seg-on-fg: #23201c; --play-bg: #23201c; --play-fg: #fbfaf7;
+    --r-strip: 8px; --strip-outline: none; --r-track: 7px; --track-bg: #f0ede6;
+    --chip-bg: #f0ede6; --r-chip: 999px; --chip-on-bg: #23201c; --chip-on-fg: #fbfaf7;
+    --bar-h: 4px; --bar-bg: #e6e2d9; --bar-fill: #23201c; --knob: 18px; --knob-bg: #fff; --knob-shadow: 0 1px 4px rgba(0,0,0,.25); --tool-on: #23201c; --tool-on-bg: #f0ede6; }
+  .c .seg .on { box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Три варіанти стилю редактора</h1>
+  <p class="lead">Той самий екран у трьох характерах. Скажіть літеру (або «A, але з кнопками як у B»), і я перенесу стиль на весь застосунок.</p>
+</div>
+<div class="grid" id="grid"></div>
+
+<template id="phone">
+  <div class="phone">
+    <div class="top">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      <span class="name">Квартира 47</span>
+      <svg class="ico" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg>
+      <span class="export">Export</span>
+    </div>
+    <div class="stage">
+      <div class="plan">
+        <svg viewBox="0 0 300 400" fill="none">
+          <rect x="34" y="40" width="112" height="120" fill="#ffd21f" fill-opacity=".5"/>
+          <path d="M30 36h240v328H30zM150 36v130M30 166h60M118 166h152M110 166v198M190 240h80v124" stroke="#3b3b3b" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M96 290c-30-4-46-26-40-48 6-22 34-30 58-22 24 8 34 30 22 50-9 15-24 21-42 20" stroke="#e5484d" stroke-width="5" stroke-linecap="round"/>
+          <path d="M176 120l54-26M230 94l-16-2M230 94l-6 15" stroke="#e5484d" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+    <div class="player">
+      <div class="seg"><span class="on">Frame</span><span>All</span></div>
+      <div class="play"><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg></div>
+      <div class="time">0:02.4 <i>/ 0:04.4</i></div>
+    </div>
+    <div class="strip"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><div class="head"></div></div>
+    <div class="tracks">
+      <div class="tr"><u style="left:8%;width:52%;background:#f2b8b5"></u></div>
+      <div class="tr"><u style="left:36%;width:64%;background:#e5484d"></u></div>
+      <div class="tr"><u style="left:50%;width:30%;background:#8ab4f8"></u></div>
+    </div>
+    <div class="label">Style · Zone 1</div>
+    <div class="slider"><span>Opacity</span><div class="bar"></div><span>40%</span></div>
+    <div class="chips"><span class="chip">Color</span><span class="chip on">Opacity</span><span class="chip">Border</span><span class="chip">Shape</span><span class="chip">Label</span></div>
+    <div class="tools">
+      <div class="tool"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add</div>
+      <div class="tool on"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z"/></svg>Style</div>
+      <div class="tool"><svg class="ico" viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>Animate</div>
+      <div class="tool"><svg class="ico" viewBox="0 0 24 24"><path d="M12 7v5l3 3M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>Timing</div>
+      <div class="tool"><svg class="ico" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16l-1 4z"/></svg>Sketch</div>
+    </div>
+  </div>
+</template>
+
+<script>
+  const options = [
+    ["a", "A. Студія", "Чистий чорний без синяви, як у вбудованому редакторі фото на телефоні. Інтерфейс майже зникає, видно тільки картинку. Жовтий лише для вибраного."],
+    ["b", "B. Креслярський", "Світлий папір, тонкі лінії, чорнило. Числа моноширинні, як на кресленні. Жовтий маркер — тільки як підкреслення вибраного."],
+    ["c", "C. Редакційний", "Теплий білий, заголовки шрифтом із засічками, м'які заокруглення, темна сцена під фото. Спокійно й по-журнальному."],
+  ];
+  const grid = document.getElementById("grid"), tpl = document.getElementById("phone");
+  for (const [cls, title, text] of options) {
+    const box = document.createElement("section");
+    box.className = "opt";
+    box.innerHTML = `<h2>${title}</h2><p>${text}</p>`;
+    const phone = tpl.content.cloneNode(true);
+    phone.querySelector(".phone").classList.add(cls);
+    box.appendChild(phone);
+    grid.appendChild(box);
+  }
+</script>
+</body>
+</html>

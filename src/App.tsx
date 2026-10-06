@@ -1,18 +1,21 @@
-import { Canvas } from "./components/Canvas";
-import { ControlPanel } from "./components/ControlPanel";
-import { RecordingControl } from "./components/controls";
+import { useEditor } from "./editor/store";
+import { Editor } from "./ui/Editor";
+import { Home } from "./ui/Home";
+import { Welcome } from "./ui/Welcome";
 
 function App() {
+  const screen = useEditor((s) => s.screen);
+  const toast = useEditor((s) => s.toast);
+  if (screen === "editor") return <Editor />;
   return (
-    <div className="p-4 md:p-6 lg:p-10">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-        <ControlPanel />
-        <div className="flex flex-col gap-6">
-          <RecordingControl />
-          <Canvas />
+    <>
+      {screen === "welcome" ? <Welcome /> : <Home />}
+      {toast && (
+        <div role="status" className={`fixed top-[max(1rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-control text-label font-semibold max-w-[calc(100%-2rem)] ${toast.kind === "error" ? "bg-danger text-white" : "bg-raised text-fg"} shadow-xl`}>
+          {toast.text}
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 
