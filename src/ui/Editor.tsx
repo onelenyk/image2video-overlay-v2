@@ -66,6 +66,8 @@ function ModeBar() {
 }
 
 export function Editor() {
+  const saveState = useEditor((state) => state.saveState);
+  const retrySave = useEditor((state) => state.retrySave);
   const { projectName, renameProject, closeProject, undo, redo, canUndo, canRedo, tool, setTool, selectedId, select, duplicate, remove, toast, preview, playing, time, mode } = useEditor();
   const selectedName = useEditor((s) => s.scene.elements.find((el) => el.id === s.selectedId)?.name ?? null);
   const [exporting, setExporting] = useState(false);
@@ -123,6 +125,12 @@ export function Editor() {
           aria-label="Project name"
           className="flex-1 min-w-0 h-10 px-2 bg-transparent rounded-lg text-[16px] sm:text-[15px] font-semibold truncate focus:bg-chip outline-none"
         />
+        {/* Is the work safe? Quiet while it is, loud when it is not */}
+        {saveState === "error" ? (
+          <button type="button" onClick={() => void retrySave()} className="shrink-0 h-8 px-2.5 rounded-full bg-danger text-white text-[12px] font-semibold whitespace-nowrap" title="The last change could not be stored. Tap to try again.">Not saved · Retry</button>
+        ) : (
+          <span role="status" className="hidden sm:block shrink-0 px-1 text-[12px] text-fg-subtle whitespace-nowrap">{saveState === "saving" ? "Saving…" : "Saved"}</span>
+        )}
         <IconButton icon="undo" label="Undo" onClick={undo} disabled={!canUndo} />
         <IconButton icon="redo" label="Redo" onClick={redo} disabled={!canRedo} />
         <IconButton icon="help" label="Help" onClick={() => setHelp(true)} className="hidden min-[420px]:grid" />

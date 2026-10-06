@@ -67,6 +67,16 @@ Templates are **data, not code** (`src/engine/template.ts`). A template lists pa
 
 Every template goes through `parseTemplate()` before use, including the bundled ones in `src/ui/templateLibrary.ts`. Unknown part kinds and fields are dropped, numbers are range-checked, text is length-limited, at most 40 parts are kept, and there is no way to pass raw SVG, HTML, URLs or colours outside the palette, so a template from any source cannot run code or break the editor. Templates saved by the user are snapshots of real overlays; they are validated the same way when loaded (`parseSaved()`), with SVG re-sanitised and only embedded images allowed.
 
+## Storage, ids and addresses
+
+The app is local-only today, and built so that accounts can be added without a rewrite:
+
+- Everything that is kept goes through the `Storage` interface in `src/editor/storage.ts`. The only implementation is IndexedDB (`src/editor/db.ts`); a server-backed one replaces it in one place (`storage` in `db.ts`).
+- Projects and templates have UUIDs. Each project record carries `ownerId` (`"local"` until there are accounts), `createdAt`, and `format`, the version of the record; `upgradeProject()` brings older records up to date when they are read.
+- A project's photo and narration are files of their own (`getFile` / `putFile`), not part of the record.
+- Saving can fail: the editor shows "Saving…", "Saved" or "Not saved · Retry".
+- Screens have addresses (`src/editor/router.ts`): `#/` landing page, `#/projects` project list, `#/p/<id>` a project. Back, reload and direct links work.
+
 ## Architecture
 
 There is one renderer. The editor canvas, the timeline thumbnails, PNG export and video export all call `drawScene()`, so the export always matches the preview.
