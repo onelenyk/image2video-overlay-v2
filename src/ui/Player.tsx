@@ -15,7 +15,7 @@ function Glyph({ d, fill = false, className = "w-5 h-5" }: { d: string; fill?: b
   );
 }
 
-const small = "w-10 h-10 grid place-items-center rounded-full text-fg hover:bg-chip-hover disabled:opacity-30";
+const small = "w-9 h-10 sm:w-10 grid place-items-center rounded-full text-fg hover:bg-chip-hover disabled:opacity-30";
 
 export function Player() {
   const [full, setFull] = useState(false);
@@ -59,7 +59,7 @@ export function Player() {
           disabled={sketching}
           aria-label={playing ? "Pause" : "Play"}
           title="Play / pause (Space)"
-          className="w-11 h-11 mx-1 grid place-items-center rounded-full text-fg hover:bg-chip disabled:opacity-40"
+          className="w-11 h-11 sm:mx-1 grid place-items-center rounded-full text-fg hover:bg-chip disabled:opacity-40"
         >
           <Glyph fill d={playing ? "M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" : "M8 5l11 7-11 7z"} className="w-6 h-6" />
         </button>
@@ -72,7 +72,7 @@ export function Player() {
       </div>
 
       {/* Clock */}
-      <div className="justify-self-end flex items-center gap-1">
+      <div className="justify-self-end flex items-center sm:gap-1">
         <button
           type="button"
           className={small}
@@ -84,8 +84,8 @@ export function Player() {
           <Glyph d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
         </button>
         <div className="text-right leading-tight">
-          <div className="text-[12px] sm:text-[14px] font-mono font-semibold tabular-nums text-fg whitespace-nowrap">
-            {formatTime(at)}<span className="text-fg-subtle"> / {formatTime(duration)}</span>
+          <div className="text-[11px] sm:text-[14px] font-mono font-semibold tabular-nums text-fg whitespace-nowrap">
+            {formatTime(at)}<span className="hidden min-[380px]:inline text-fg-subtle"> / {formatTime(duration)}</span>
           </div>
           <div className="hidden sm:block text-[11px] text-fg-subtle">{kind}</div>
         </div>

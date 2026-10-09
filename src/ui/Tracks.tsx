@@ -36,6 +36,11 @@ function dragSeconds(e: React.PointerEvent<HTMLElement>, secondsPerPx: number, o
   target.addEventListener("pointercancel", up);
 }
 
+/** Name of a track, in the column left of the bars (wide screens; on a phone the name is on the bar). */
+function RowLabel({ children, on = false }: { children: React.ReactNode; on?: boolean }) {
+  return <span className={`hidden lg:block absolute right-full top-0 bottom-0 mr-3 w-[104px] truncate text-right text-[11px] leading-7 ${on ? "text-fg font-semibold" : "text-fg-subtle"}`}>{children}</span>;
+}
+
 function Ruler({ duration }: { duration: number }) {
   const step = [0.5, 1, 2, 5, 10, 15, 30].find((s) => duration / s <= 10) ?? 60;
   const marks = [];
@@ -89,6 +94,7 @@ function ElementRow({ el, duration, width }: { el: El; duration: number; width: 
 
   return (
     <div className="relative h-7">
+      <RowLabel on={selected}>{el.name}</RowLabel>
       <div className="absolute inset-x-0 top-0.5 bottom-0.5 rounded bg-chip/60" />
       <div
         className={`absolute top-0.5 bottom-0.5 rounded overflow-hidden cursor-grab active:cursor-grabbing ${selected ? "ring-2 ring-brand" : "ring-1 ring-line"} ${el.visible ? "" : "opacity-40"}`}
@@ -99,7 +105,7 @@ function ElementRow({ el, duration, width }: { el: El; duration: number; width: 
         <div className={`absolute inset-0 ${el.time ? "bg-black/25" : "bg-black/55"}`} />
         {cycles.map((p, i) => <span key={i} className="absolute top-0 bottom-0 w-px bg-white/50" style={{ left: `${p * 100}%` }} />)}
         <span className="absolute inset-y-0 left-3 right-3 flex items-center gap-1.5 text-[11px] font-semibold text-white whitespace-nowrap overflow-hidden pointer-events-none [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
-          <span className="truncate">{el.name}</span>
+          <span className="truncate lg:hidden">{el.name}</span>
           {el.anim.enabled && <span className="shrink-0 px-1 rounded bg-black/50 text-[10px] uppercase tracking-wide">{ANIMATIONS[el.anim.type].label}</span>}
           {!el.time && <span className="shrink-0 text-[10px] font-normal text-white/70">whole video</span>}
         </span>
@@ -115,7 +121,8 @@ function SketchRow({ strokes, duration, width }: { strokes: Sketched[]; duration
   const { patch, commit, select } = useEditor();
   return (
     <div className="relative h-7">
-      <span className="absolute inset-y-0 left-1 flex items-center text-[10px] uppercase tracking-wide text-fg-subtle pointer-events-none">Sketch</span>
+      <RowLabel>Sketch</RowLabel>
+      <span className="lg:hidden absolute inset-y-0 left-1 flex items-center text-[10px] uppercase tracking-wide text-fg-subtle pointer-events-none">Sketch</span>
       {strokes.map((el) => {
         const drawn = el.sketch.times[el.sketch.times.length - 1] ?? 0;
         const hold = el.sketch.hold === null ? duration - el.sketch.start - drawn : el.sketch.hold + el.sketch.fade;
@@ -145,6 +152,7 @@ export function Tracks({ duration, width, playhead }: { duration: number; width:
   const elements = useEditor((s) => s.scene.elements);
   const groups = useEditor((s) => s.scene.groups);
   const groupSel = useEditor((s) => s.groupSel);
+  const narration = useEditor((s) => s.narration);
   const selectGroup = useEditor((s) => s.selectGroup);
   // Open by default where there is room; on a phone the canvas needs the space
   const [open, setOpen] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
@@ -155,17 +163,18 @@ export function Tracks({ duration, width, playhead }: { duration: number; width:
   // Rows of one group stay together under its name, in the order the groups first appear
   const groupIds = [...new Set(others.map((el) => el.group).filter((g): g is string => !!g))];
   const loose = others.filter((el) => !el.group);
-  if (!elements.length) return null;
-  const rows = others.length + drawn.length + (strokes.length ? 1 : 0);
+  if (!elements.length && !narration) return null;
+  const rows = others.length + drawn.length + (strokes.length ? 1 : 0) + (narration ? 1 : 0);
 
   return (
     <div className="mt-1">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="h-7 text-[11px] font-semibold uppercase tracking-widest text-fg-subtle hover:text-fg-muted" aria-expanded={open}>
+      <button type="button" onClick={() => setOpen((v) => !v)} className="h-9 lg:h-7 pr-3 lg:ml-[116px] text-[11px] font-semibold uppercase tracking-widest text-fg-subtle hover:text-fg-muted" aria-expanded={open}>
         {open ? "▾" : "▸"} Tracks · {rows}
       </button>
       {open && (
         // A fixed height: new tracks fill it downwards (then scroll) instead of pushing the photo smaller
-        <div className="relative h-[22dvh] overflow-y-auto no-scrollbar">
+        <div className="h-[22dvh] lg:h-[clamp(128px,19dvh,212px)] overflow-y-auto no-scrollbar lg:pl-[116px] pb-1">
+          <div className="relative min-h-full">
           <Ruler duration={duration} />
           {groupIds.map((id) => (
             <div key={id} className={`my-0.5 rounded ${groupSel === id ? "bg-brand/10" : "bg-white/[0.04]"}`}>
@@ -179,7 +188,17 @@ export function Tracks({ duration, width, playhead }: { duration: number; width:
           {(strokes.length > 0 || drawn.length > 0) && others.length > 0 && <div className="h-px my-1 bg-line" />}
           {strokes.length > 0 && <SketchRow strokes={strokes} duration={duration} width={width} />}
           {drawn.map((el) => <ElementRow key={el.id} el={el} duration={duration} width={width} />)}
+          {narration && (
+            <div className="relative h-7" title={`${narration.name}: ${narration.duration.toFixed(1)}s`}>
+              <RowLabel>Voice</RowLabel>
+              <div className="absolute inset-x-0 top-0.5 bottom-0.5 rounded bg-chip/60" />
+              <div className="absolute top-1.5 bottom-1.5 left-0 rounded bg-sky/70" style={{ width: `${Math.min(1, narration.duration / duration) * 100}%` }}>
+                <span className="lg:hidden absolute inset-y-0 left-2 flex items-center text-[10px] font-semibold text-white">Voice</span>
+              </div>
+            </div>
+          )}
           {playhead !== null && <div className="absolute top-0 bottom-0 w-[3px] rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.9)] pointer-events-none z-20" style={{ left: `calc(${Math.min(1, playhead / duration) * 100}% - 1px)` }} />}
+          </div>
         </div>
       )}
     </div>

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan Highlighter: компонування редактора</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 28px 20px 56px; background: #e9e9e6; color: #1a1a1a; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; font-weight: 650; }
+  .lead { margin: 0 0 30px; color: #555; max-width: 78ch; }
+  .opt { margin-bottom: 44px; }
+  .opt h2 { font-size: 17px; margin: 0 0 2px; font-weight: 650; }
+  .opt > p { margin: 0 0 14px; color: #555; font-size: 13.5px; max-width: 86ch; }
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) 214px; gap: 26px; align-items: start; }
+  .pros { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px; margin: 14px 0 0; font-size: 13px; color: #333; }
+  .pros b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #777; margin-bottom: 2px; }
+  .pros ul { margin: 0; padding-left: 16px; }
+
+  /* shared pieces */
+  .desk, .phone { background: #000; color: #f2f2f2; overflow: hidden; font-size: 10.5px; position: relative; box-shadow: 0 0 0 7px #1b1b1d, 0 22px 46px rgba(0,0,0,.26); }
+  .desk { aspect-ratio: 16 / 10; border-radius: 10px; display: grid; }
+  .phone { aspect-ratio: 214 / 440; border-radius: 26px; display: flex; flex-direction: column; }
+  .bar { display: flex; align-items: center; gap: 7px; padding: 0 9px; background: #000; min-height: 0; }
+  .ln-b { border-bottom: 1px solid #242426; } .ln-t { border-top: 1px solid #242426; } .ln-r { border-right: 1px solid #242426; } .ln-l { border-left: 1px solid #242426; }
+  .panel { background: #0e0e0f; } .grow { flex: 1; min-width: 0; }
+  .name { font-weight: 600; font-size: 11.5px; white-space: nowrap; }
+  .mut { color: #8e8e93; } .y { color: #ffd60a; }
+  .ic { width: 15px; height: 15px; border-radius: 4px; background: #3a3a3c; flex: none; } .ic.r { border-radius: 50%; }
+  .cta { background: #ffd60a; color: #000; font-weight: 700; padding: 3px 10px; border-radius: 99px; font-size: 10.5px; flex: none; }
+  .chip { background: #1c1c1e; padding: 3px 8px; border-radius: 99px; white-space: nowrap; flex: none; } .chip.on { background: #f2f2f2; color: #000; font-weight: 600; }
+  .stage { background: #000; display: grid; place-items: center; min-height: 0; min-width: 0; position: relative; padding: 10px; }
+  .photo { height: 100%; max-width: 100%; aspect-ratio: 3 / 4; background: #f1f1ee; position: relative; }
+  .photo::before { content: ""; position: absolute; left: 12%; top: 12%; width: 42%; height: 34%; background: rgba(255,214,10,.6); outline: 1.5px dashed #ffd60a; }
+  .photo::after { content: ""; position: absolute; left: 58%; top: 52%; width: 22%; height: 4px; background: #ff453a; border-radius: 2px; }
+  .play { width: 20px; height: 20px; border-radius: 50%; background: #f2f2f2; position: relative; flex: none; } .play::after { content: ""; position: absolute; left: 8px; top: 6px; border: 4px solid transparent; border-left: 6px solid #000; border-right: 0; }
+  .strip { height: 20px; border-radius: 4px; outline: 1.5px solid #ffd60a; display: flex; overflow: hidden; flex: 1; min-width: 0; position: relative; } .strip i { flex: 1; background: #e4e4e0; border-right: 1px solid #999; } .strip::after { content: ""; position: absolute; left: 38%; top: -2px; bottom: -2px; width: 2px; background: #fff; }
+  .tr { height: 9px; border-radius: 3px; background: #1c1c1e; position: relative; } .tr u { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: #c9a606; } .tr u.r { background: #b3352d; }
+  .col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .rail { display: flex; flex-direction: column; gap: 9px; align-items: center; padding: 9px 0; width: 38px; font-size: 8px; color: #8e8e93; } .rail div { display: grid; justify-items: center; gap: 2px; } .rail .on { color: #ffd60a; } .rail .on .ic { background: #ffd60a; }
+  .sec { padding: 8px 9px; display: grid; gap: 5px; } .sec h4 { margin: 0; font-size: 8.5px; letter-spacing: .09em; text-transform: uppercase; color: #8e8e93; font-weight: 600; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; } .tiles i { aspect-ratio: 4/3; background: #1c1c1e; border-radius: 4px; }
+  .sl { height: 3px; border-radius: 3px; background: linear-gradient(90deg, #ffd60a 55%, #2c2c2e 55%); margin: 5px 0; }
+  .sw { display: flex; gap: 4px; } .sw i { width: 12px; height: 12px; border-radius: 50%; background: #ff453a; } .sw i:nth-child(2) { background: #ffd60a; } .sw i:nth-child(3) { background: #30d158; } .sw i:nth-child(4) { background: #0a84ff; } .sw i:nth-child(5) { background: #f2f2f2; }
+  .float { position: absolute; background: #1c1c1e; border-radius: 99px; display: flex; align-items: center; gap: 8px; padding: 5px 10px; box-shadow: 0 6px 18px rgba(0,0,0,.6); white-space: nowrap; }
+  .tab { display: grid; justify-items: center; gap: 2px; font-size: 8px; color: #8e8e93; flex: 1; } .tab.on { color: #ffd60a; } .tab.on .ic { background: #ffd60a; }
+  .tag { position: absolute; left: 8px; top: 8px; font-size: 9px; background: rgba(0,0,0,.6); padding: 1px 6px; border-radius: 4px; color: #aeaeb2; }
+  .now { font-size: 11px; color: #777; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Три компонування редактора</h1>
+  <p class="lead">Ви назвали три проблеми: версія для комп'ютера, кнопки не там, де чекаєш, і забагато смужок. Стиль «Студія» лишається; міняється лише те, що де стоїть. Ліворуч комп'ютер, праворуч той самий принцип на телефоні. Оберіть один або скажіть, що взяти з різних.</p>
+
+  <!-- A -->
+  <section class="opt">
+    <h2>A. «Робочий стіл» — усе на своєму постійному місці</h2>
+    <p>Як у Figma чи Keynote. Праворуч завжди є панель властивостей: нічого не вибрано — там налаштування кадру, вибрано overlay — його стиль, анімація й час. Окрема кнопка Canvas зникає. Панель «Додати» відкривається поверх полотна й не зсуває його. Плеєр і плитки кадрів зливаються в один ряд.</p>
+    <div class="pair">
+      <div class="desk" style="grid-template-rows: 30px 1fr 74px; grid-template-columns: 38px 1fr 168px;">
+        <div class="bar ln-b" style="grid-column: 1 / -1"><span class="ic"></span><span class="name">Квартира 47</span><span class="mut">Saved</span><span class="grow"></span><span class="ic"></span><span class="ic"></span><span class="grow"></span><span class="ic r"></span><span class="cta">Export</span></div>
+        <div class="rail panel ln-r"><div class="on"><span class="ic"></span>Add</div><div><span class="ic"></span>Draw</div><div><span class="ic"></span>Overlays</div></div>
+        <div class="stage"><div class="photo"></div>
+          <div class="panel" style="position:absolute;left:8px;top:8px;bottom:8px;width:150px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.6)"><div class="sec"><h4>Add overlay</h4><div style="display:flex;gap:4px;overflow:hidden"><span class="chip on">Templates</span><span class="chip">Zones</span><span class="chip">Text</span></div><div class="tiles"><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>
+        </div>
+        <div class="panel ln-l col"><div class="sec ln-b"><h4 class="y">Living room</h4><div class="mut">Zone · 0.0–3.6s</div></div><div class="sec ln-b"><h4>Style</h4><div class="sw"><i></i><i></i><i></i><i></i><i></i></div><div class="sl"></div></div><div class="sec ln-b"><h4>Animate</h4><div style="display:flex;gap:4px"><span class="chip on">Pulse</span><span class="chip">Ripple</span></div><div class="sl"></div></div><div class="sec"><h4>Timing</h4><div class="sl"></div></div></div>
+        <div class="panel ln-t col" style="grid-column: 1 / -1; padding: 7px 9px; gap: 5px;"><div style="display:flex;align-items:center;gap:8px"><span class="play"></span><span class="mut" style="font-family:ui-monospace,monospace">0:01.4 / 0:03.6</span><div class="strip"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="ic"></span></div><div class="tr"><u style="left:0;right:0"></u></div><div class="tr"><u class="r" style="left:30%;right:0"></u></div><div class="tr"><u style="left:55%;right:10%"></u></div></div>
+      </div>
+      <div class="phone">
+        <div class="bar ln-b" style="height:28px"><span class="ic"></span><span class="name grow">Квартира 47</span><span class="ic"></span><span class="cta">Export</span></div>
+        <div class="stage grow"><div class="photo"></div></div>
+        <div class="bar panel ln-t" style="height:34px"><span class="play"></span><div class="strip"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="bar panel ln-t" style="height:30px;overflow:hidden"><span class="name y">Living room</span><span class="chip on">Style</span><span class="chip">Animate</span><span class="chip">Timing</span></div>
+        <div class="panel sec ln-t" style="height:64px"><div class="sw"><i></i><i></i><i></i><i></i><i></i></div><div class="sl"></div></div>
+        <div class="bar panel ln-t" style="height:38px"><div class="tab on"><span class="ic"></span>Add</div><div class="tab"><span class="ic"></span>Draw</div><div class="tab"><span class="ic"></span>Overlays</div></div>
+      </div>
+    </div>
+    <div class="pros"><div><b>Що дає</b><ul><li>Кожна річ завжди в одному місці; права панель ніколи не порожня</li><li>На один рівень менше: плеєр + кадри в одному ряду, Canvas не окремий інструмент</li><li>Полотно не стрибає, коли відкриваєш «Додати»</li></ul></div><div><b>Чим платимо</b><ul><li>Найменша зміна з трьох — виглядатиме знайомо, а не «вау»</li><li>На телефоні смужок лишається п'ять замість семи</li></ul></div></div>
+  </section>
+
+  <!-- B -->
+  <section class="opt">
+    <h2>B. «Монтажний стіл» — таймлайн головний</h2>
+    <p>Як у CapCut чи iMovie на комп'ютері. Верхня половина — бібліотека, перегляд і властивості; нижня — великий таймлайн на всю ширину з доріжками, де й відбувається робота з часом. Кнопка Play стоїть прямо під картинкою, а не в окремій смужці.</p>
+    <div class="pair">
+      <div class="desk" style="grid-template-rows: 30px 1fr 128px; grid-template-columns: 170px 1fr 168px;">
+        <div class="bar ln-b" style="grid-column: 1 / -1"><span class="ic"></span><span class="name">Квартира 47</span><span class="mut">Saved</span><span class="grow"></span><span class="ic"></span><span class="ic"></span><span class="ic r"></span><span class="cta">Export</span></div>
+        <div class="panel ln-r col"><div class="bar ln-b" style="height:26px;gap:10px"><span class="y" style="font-weight:600">Add</span><span class="mut">Draw</span><span class="mut">Overlays</span></div><div class="sec"><div style="display:flex;gap:4px;overflow:hidden"><span class="chip on">Templates</span><span class="chip">Zones</span><span class="chip">Text</span></div><div class="tiles"><i></i><i></i><i></i><i></i></div></div></div>
+        <div class="col"><div class="stage grow"><div class="photo"></div></div><div class="bar" style="height:26px;justify-content:center;gap:12px"><span class="ic"></span><span class="play"></span><span class="ic"></span><span class="mut" style="font-family:ui-monospace,monospace">0:01.4 / 0:03.6</span></div></div>
+        <div class="panel ln-l col"><div class="sec ln-b"><h4 class="y">Living room</h4></div><div class="sec ln-b"><h4>Style</h4><div class="sw"><i></i><i></i><i></i><i></i><i></i></div><div class="sl"></div></div><div class="sec"><h4>Animate</h4><div class="sl"></div></div></div>
+        <div class="panel ln-t col" style="grid-column: 1 / -1; padding: 7px 9px; gap: 5px;"><div style="display:flex;gap:8px;align-items:center"><span class="mut" style="width:62px">Кадри</span><div class="strip"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div style="display:flex;gap:8px;align-items:center"><span class="mut" style="width:62px">Room tour</span><div class="tr grow"><u style="left:0;right:0"></u></div></div><div style="display:flex;gap:8px;align-items:center"><span class="mut" style="width:62px">Kitchen</span><div class="tr grow"><u class="r" style="left:30%;right:0"></u></div></div><div style="display:flex;gap:8px;align-items:center"><span class="mut" style="width:62px">Bedroom</span><div class="tr grow"><u style="left:55%;right:10%"></u></div></div><div style="display:flex;gap:8px;align-items:center"><span class="mut" style="width:62px">Голос</span><div class="tr grow"><u style="left:0;right:20%;background:#3a6ea5"></u></div></div></div>
+      </div>
+      <div class="phone">
+        <div class="bar ln-b" style="height:28px"><span class="ic"></span><span class="name grow">Квартира 47</span><span class="ic"></span><span class="cta">Export</span></div>
+        <div class="stage" style="height:42%"><div class="photo"></div></div>
+        <div class="bar" style="height:26px;justify-content:center;gap:12px"><span class="ic"></span><span class="play"></span><span class="ic"></span></div>
+        <div class="panel ln-t col grow" style="padding:6px 8px;gap:4px"><div class="strip" style="flex:none"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="tr"><u style="left:0;right:0"></u></div><div class="tr"><u class="r" style="left:30%;right:0"></u></div><div class="tr"><u style="left:55%;right:10%"></u></div><div class="tr"><u style="left:0;right:20%;background:#3a6ea5"></u></div></div>
+        <div class="bar panel ln-t" style="height:38px"><div class="tab on"><span class="ic"></span>Add</div><div class="tab"><span class="ic"></span>Draw</div><div class="tab"><span class="ic"></span>Style</div><div class="tab"><span class="ic"></span>Animate</div></div>
+      </div>
+    </div>
+    <div class="pros"><div><b>Що дає</b><ul><li>Одразу видно, що це відео, а не картинка: час — головний</li><li>Доріжки мають підписи й місце; голос — окрема доріжка</li><li>Play там, де його шукають, — під картинкою</li></ul></div><div><b>Чим платимо</b><ul><li>Картинка менша: половину висоти забирає таймлайн</li><li>Найбільша переробка; для простого «обвів і експортував» це забагато інструмента</li><li>На телефоні фото займає менше половини екрана</li></ul></div></div>
+  </section>
+
+  <!-- C -->
+  <section class="opt">
+    <h2>C. «Чисте полотно» — картинка на весь екран, решта плаває</h2>
+    <p>Як редактор у «Фото» на iPhone чи tldraw. Жодних постійних колонок: інструменти — плаваюча пігулка внизу, дії з вибраним overlay — маленька пігулка біля нього, панелі відкриваються як картки поверх і закриваються самі. Таймлайн — один тонкий ряд, що розгортається в доріжки за потреби.</p>
+    <div class="pair">
+      <div class="desk" style="grid-template-rows: 1fr 40px;">
+        <div class="stage" style="padding:16px"><div class="photo"></div>
+          <div class="float" style="left:12px;top:10px"><span class="ic"></span><span class="name">Квартира 47</span><span class="mut">Saved</span></div>
+          <div class="float" style="right:12px;top:10px"><span class="ic"></span><span class="ic"></span><span class="cta">Export</span></div>
+          <div class="float" style="left:37%;top:14%"><span class="y" style="font-weight:600">Living room</span><span>Style</span><span>Animate</span><span>Timing</span><span class="ic"></span></div>
+          <div class="panel" style="position:absolute;right:12px;top:52px;width:168px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.6)"><div class="sec"><h4>Style</h4><div class="sw"><i></i><i></i><i></i><i></i><i></i></div><div class="sl"></div><div class="sl"></div></div></div>
+          <div class="float" style="left:50%;bottom:10px;transform:translateX(-50%);gap:14px;padding:6px 14px"><span class="y" style="font-weight:600">+ Add</span><span>Draw</span><span>Overlays</span><span>Canvas</span></div>
+        </div>
+        <div class="bar panel ln-t" style="gap:9px"><span class="play"></span><span class="mut" style="font-family:ui-monospace,monospace">0:01.4 / 0:03.6</span><div class="strip"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="mut">Tracks ▴</span></div>
+      </div>
+      <div class="phone">
+        <div class="stage grow" style="padding:8px"><div class="photo"></div>
+          <div class="float" style="left:8px;top:8px;padding:4px 8px"><span class="ic"></span><span class="name">Квартира 47</span></div>
+          <div class="float" style="right:8px;top:8px;padding:4px 6px"><span class="ic"></span><span class="cta">Export</span></div>
+          <div class="float" style="left:50%;bottom:8px;transform:translateX(-50%);padding:5px 10px;gap:9px"><span class="y" style="font-weight:600">Living room</span><span>Style</span><span>Animate</span><span>Timing</span></div>
+        </div>
+        <div class="bar panel ln-t" style="height:34px"><span class="play"></span><div class="strip"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="bar panel ln-t" style="height:38px"><div class="tab on"><span class="ic"></span>Add</div><div class="tab"><span class="ic"></span>Draw</div><div class="tab"><span class="ic"></span>Overlays</div><div class="tab"><span class="ic"></span>Canvas</div></div>
+      </div>
+    </div>
+    <div class="pros"><div><b>Що дає</b><ul><li>Найбільша картинка і найменше смужок: на комп'ютері лишається одна</li><li>Дії з overlay з'являються поруч із ним — рука нікуди не їде</li><li>Виглядає найсучасніше й найпростіше для новачка</li></ul></div><div><b>Чим платимо</b><ul><li>Плаваючі елементи інколи закривають частину фото</li><li>Усі властивості одразу не видно — тільки одна картка за раз</li><li>Ваше правило «виділення не міняє меню» збережено, але плашка тепер плаває, а не стоїть рядком</li></ul></div></div>
+  </section>
+
+  <p class="now">Зараз: шапка → полотно → плеєр → кадри → треки → (плашка виділення) → (панель) → меню; на комп'ютері — рейка, панель 320 px, полотно, інспектор 320 px.</p>
+</div>
+</body>
+</html>

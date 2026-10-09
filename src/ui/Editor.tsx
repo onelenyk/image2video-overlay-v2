@@ -17,8 +17,13 @@ import { StylePanel } from "./panels/StylePanel";
 import { TimingPanel } from "./panels/TimingPanel";
 
 // The main menu never changes: these tools work on the whole project. Selecting
-// an overlay adds to it: a selection bar on a phone, an inspector column on a
+// an overlay adds to it: a selection bar on a phone, the inspector column on a
 // wide screen, both offering that overlay's own tools.
+//
+// Wide screens are laid out like an editing desk: what you can add on the left,
+// the picture with its transport in the middle, properties on the right (the
+// canvas settings while nothing is selected), and the timeline with its tracks
+// across the whole width underneath.
 interface ToolItem { id: Tool; label: string; icon: string; title?: string }
 const PROJECT_TOOLS: ToolItem[] = [
   { id: "add", label: "Add", icon: "plus", title: "Add overlay" },
@@ -95,7 +100,9 @@ export function Editor() {
   const [lastProjectTool, setLastProjectTool] = useState<Tool>("add");
   const projectChoice = PROJECT_TOOLS.find((item) => item.id === tool) ?? null;
   if (projectChoice && projectChoice.id !== lastProjectTool) setLastProjectTool(projectChoice.id);
-  const projectTool = projectChoice ?? (wide ? PROJECT_TOOLS.find((item) => item.id === lastProjectTool)! : null);
+  // On a wide screen the canvas settings live in the right column, not in the menu
+  const menu = wide ? PROJECT_TOOLS.filter((item) => item.id !== "canvas") : PROJECT_TOOLS;
+  const projectTool = wide ? menu.find((item) => item.id === (projectChoice?.id ?? lastProjectTool)) ?? menu[0] : projectChoice;
   // The overlay tool open on a phone (a wide screen shows all three in the inspector)
   const overlayTool = hasSelection ? OVERLAY_TOOLS.find((item) => item.id === tool) ?? null : null;
   const shown = wide ? projectTool : overlayTool ?? projectTool;
@@ -139,13 +146,12 @@ export function Editor() {
         </button>
       </header>
 
-      {/* Phone: stage, time controls, selection bar, open panel, menu, top to bottom.
-          Wide: menu and its panel on the left, stage and time in the middle,
-          the selected overlay's inspector on the right. */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        <aside className="order-last lg:order-first shrink-0 min-h-0 flex flex-col lg:flex-row bg-panel border-t border-line lg:border-t-0 lg:border-r">
-          <nav className="order-last lg:order-first flex lg:flex-col justify-around lg:justify-start lg:gap-1 px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] lg:w-[76px] lg:px-2 lg:py-3 lg:border-r border-line" aria-label="Project tools">
-            {PROJECT_TOOLS.map((item) => {
+      {/* Phone: stage, transport, timeline, selection bar, open panel, menu, top to bottom.
+          Wide: three columns over the full-width timeline. */}
+      <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[300px_minmax(0,1fr)_300px] lg:grid-rows-[minmax(0,1fr)_auto]">
+        <aside className="order-last lg:order-none lg:col-start-1 lg:row-start-1 shrink-0 min-h-0 flex flex-col bg-panel border-t border-line lg:border-t-0 lg:border-r">
+          <nav className="order-last lg:order-first shrink-0 flex justify-around lg:justify-start lg:items-center lg:gap-1 px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] lg:h-12 lg:px-2 lg:py-0 lg:border-b border-line" aria-label="Project tools">
+            {menu.map((item) => {
               const on = shown?.id === item.id || (wide && projectTool?.id === item.id);
               return (
                 <button
@@ -154,10 +160,10 @@ export function Editor() {
                   onClick={() => setTool(on && !wide ? null : item.id)}
                   aria-pressed={on}
                   title={item.title ?? item.label}
-                  className={`flex-1 lg:flex-none min-w-0 max-w-24 lg:max-w-none h-14 lg:h-[60px] flex flex-col items-center justify-center gap-0.5 lg:gap-1 rounded-control transition-colors ${on ? "text-brand lg:bg-chip" : "text-fg-subtle hover:text-fg lg:hover:bg-chip"}`}
+                  className={`flex-1 lg:flex-none min-w-0 max-w-24 lg:max-w-none h-14 lg:h-8 lg:px-3 flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1.5 rounded-control lg:rounded-full transition-colors ${on ? "text-brand lg:bg-chip-active lg:text-fg" : "text-fg-subtle hover:text-fg lg:hover:bg-chip"}`}
                 >
-                  <Icon name={item.icon} />
-                  <span className="text-[11px] font-semibold">{item.label}</span>
+                  <Icon name={item.icon} className="w-5 h-5 lg:w-4 lg:h-4" />
+                  <span className="text-[11px] lg:text-[13px] font-semibold">{item.label}</span>
                 </button>
               );
             })}
@@ -179,9 +185,11 @@ export function Editor() {
 
           {/* Selection bar (phone): appears above the menu while an overlay is selected */}
           {hasSelection && selectedId && (
-            <div className="order-first lg:hidden flex items-center gap-1.5 h-12 pl-3 pr-1 border-b border-line overflow-x-auto no-scrollbar" role="toolbar" aria-label={`Selected: ${selectedName}`}>
+            <div className="order-first lg:hidden flex items-center gap-1.5 h-12 pl-3 pr-1 border-b border-line" role="toolbar" aria-label={`Selected: ${selectedName}`}>
               <span className="shrink-0 w-3.5 h-3.5 rounded-sm" style={{ background: selectedColor ?? undefined }} aria-hidden />
-              <span className="shrink min-w-12 max-w-28 truncate text-[13px] font-semibold text-fg">{selectedName}</span>
+              <span className="shrink min-w-0 max-w-24 truncate text-[13px] font-semibold text-fg">{selectedName}</span>
+              {/* Only the tools scroll; duplicate, delete and deselect stay within reach */}
+              <span className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
               {OVERLAY_TOOLS.map((item) => (
                 <button
                   key={item.id}
@@ -193,30 +201,31 @@ export function Editor() {
                   {item.label}
                 </button>
               ))}
-              <span className="ml-auto flex shrink-0">
-                <IconButton icon="copy" label="Duplicate" onClick={() => duplicate(selectedId)} className="!w-10 !h-10" />
-                <IconButton icon="trash" label="Delete" onClick={() => remove(selectedId)} className="!w-10 !h-10" />
-                <IconButton icon="close" label="Deselect" onClick={() => select(null)} className="!w-10 !h-10" />
+              </span>
+              <span className="flex shrink-0">
+                <IconButton icon="copy" label="Duplicate" onClick={() => duplicate(selectedId)} className="!w-9 !h-10" />
+                <IconButton icon="trash" label="Delete" onClick={() => remove(selectedId)} className="!w-9 !h-10" />
+                <IconButton icon="close" label="Deselect" onClick={() => select(null)} className="!w-9 !h-10" />
               </span>
             </div>
           )}
 
           {Panel && shown && (
-            <section aria-label={`${shown.label} options`} className="flex flex-col min-h-0 max-h-[40dvh] lg:max-h-none lg:w-[320px] border-b border-line lg:border-b-0">
-              <header className="shrink-0 flex items-center gap-1.5 h-9 lg:h-12 pl-4 pr-1">
+            <section aria-label={`${shown.label} options`} className="flex flex-col min-h-0 max-h-[40dvh] lg:max-h-none lg:flex-1 border-b border-line lg:border-b-0">
+              <header className="shrink-0 flex lg:hidden items-center gap-1.5 h-9 pl-4 pr-1">
                 <h2 className="text-[11px] font-semibold uppercase tracking-[0.09em] text-fg-subtle">{shown.title ?? shown.label}</h2>
                 <IconButton icon="close" label={`Close ${shown.label}`} onClick={() => setTool(null)} className="ml-auto !w-9 !h-9 text-fg-subtle lg:hidden" />
               </header>
-              <div className="px-4 py-2 overflow-y-auto">
+              <div className="px-4 py-2 lg:py-3 overflow-y-auto">
                 <Panel />
               </div>
             </section>
           )}
         </aside>
 
-        <div className="flex-1 min-h-0 min-w-0 flex flex-col">
+        <div className="lg:col-start-2 lg:row-start-1 flex-1 min-h-0 min-w-0 flex flex-col">
           {/* Stage */}
-          <main className="relative flex-1 min-h-0 m-1 sm:m-3 lg:m-6">
+          <main className="relative flex-1 min-h-0 m-1 sm:m-3 lg:m-4 lg:mb-1">
             <EditorCanvas />
             <ModeBar />
             {preview && mode === "select" && (
@@ -226,18 +235,31 @@ export function Editor() {
             )}
           </main>
 
-          {/* Time: player on top, timeline under it */}
-          <div className="shrink-0 border-t border-line bg-panel">
-            <div className="max-w-5xl mx-auto">
-              <Player />
-              <Timeline />
-            </div>
+          {/* Transport, right under the picture */}
+          <div className="shrink-0 border-t border-line bg-panel lg:border-t-0 lg:bg-transparent lg:pb-1">
+            <Player />
           </div>
         </div>
 
+        {/* Timeline: frames and tracks, across the whole width on a wide screen */}
+        <div className="shrink-0 bg-panel lg:col-span-3 lg:row-start-2 lg:border-t border-line">
+          <Timeline />
+        </div>
+
+        {/* Nothing selected (wide): the right column holds the settings of the picture itself */}
+        {!hasGroup && !hasSelection && (
+          <aside className="hidden lg:flex lg:col-start-3 lg:row-start-1 min-h-0 flex-col bg-panel border-l border-line" aria-label="Canvas">
+            <header className="shrink-0 flex items-center h-12 px-4 border-b border-line">
+              <h2 className="text-[14px] font-semibold text-fg">Canvas</h2>
+              <span className="ml-auto text-[12px] text-fg-subtle">Select an overlay to edit it</span>
+            </header>
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3"><CanvasPanel /></div>
+          </aside>
+        )}
+
         {/* Group inspector (wide) */}
         {hasGroup && groupSel && (
-          <aside className="hidden lg:flex shrink-0 w-[320px] min-h-0 flex-col bg-panel border-l border-line" aria-label={`Selected group: ${groupName}`}>
+          <aside className="hidden lg:flex lg:col-start-3 lg:row-start-1 min-h-0 flex-col bg-panel border-l border-line" aria-label={`Selected group: ${groupName}`}>
             <header className="shrink-0 flex items-center gap-2 h-12 pl-4 pr-1 border-b border-line">
               <h2 className="min-w-0 truncate text-[14px] font-semibold text-brand">{groupName}</h2>
               <span className="shrink-0 text-[12px] text-fg-subtle">group of {groupCount}</span>
@@ -258,7 +280,7 @@ export function Editor() {
 
         {/* Inspector (wide): everything about the selected overlay, in sections */}
         {hasSelection && selectedId && (
-          <aside className="hidden lg:flex shrink-0 w-[320px] min-h-0 flex-col bg-panel border-l border-line" aria-label={`Selected: ${selectedName}`}>
+          <aside className="hidden lg:flex lg:col-start-3 lg:row-start-1 min-h-0 flex-col bg-panel border-l border-line" aria-label={`Selected: ${selectedName}`}>
             <header className="shrink-0 flex items-center gap-2 h-12 pl-4 pr-1 border-b border-line">
               <span className="shrink-0 w-3.5 h-3.5 rounded-sm" style={{ background: selectedColor ?? undefined }} aria-hidden />
               <h2 className="min-w-0 truncate text-[14px] font-semibold text-fg">{selectedName}</h2>

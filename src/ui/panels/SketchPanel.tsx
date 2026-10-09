@@ -61,20 +61,21 @@ export function SketchPanel() {
 
       {/* Sketch while you talk */}
       <h3 className="pt-2 text-[11px] font-semibold uppercase tracking-[0.09em] text-fg-subtle">Sketch while you talk</h3>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        {/* The main action takes the whole line; the audio buttons share the next one */}
         <button
           type="button"
           onClick={recording ? stopSketch : startSketch}
-          className={`flex-1 h-12 rounded-control text-[14px] font-bold flex items-center justify-center gap-2 ${recording ? "bg-chip-active text-fg" : "bg-accent hover:brightness-110 text-white"}`}
+          className={`w-full h-12 rounded-control text-[14px] font-bold flex items-center justify-center gap-2 whitespace-nowrap ${recording ? "bg-chip-active text-fg" : "bg-accent hover:brightness-110 text-white"}`}
         >
           <span className={`w-2.5 h-2.5 rounded-full ${recording ? "bg-accent animate-pulse" : "bg-white"}`} />
           {recording ? `Stop · ${time.toFixed(1)}s` : strokes ? "Continue sketching" : "Start sketching"}
         </button>
         {narration
-          ? <ConfirmButton label="Remove audio" confirmLabel="Remove?" onConfirm={() => setNarration(null)} className="!h-12" />
+          ? <ConfirmButton label="Remove audio" confirmLabel="Remove?" onConfirm={() => setNarration(null)} className="flex-1" />
           : <>
-            <Button onClick={pickAudio} className="!h-12">Add audio</Button>
-            <VoiceRecorder onDone={(file) => setNarration(file)} className="!h-12" />
+            <Button onClick={pickAudio} className="flex-1 whitespace-nowrap">Add audio</Button>
+            <VoiceRecorder onDone={(file) => setNarration(file)} className="flex-1 !h-11" />
           </>}
       </div>
       <p className="text-[12px] text-fg-muted">

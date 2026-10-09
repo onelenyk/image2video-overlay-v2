@@ -57,8 +57,8 @@ export function CanvasPanel() {
         <span className="shrink-0 text-[13px] text-fg-muted w-20">Length</span>
         <Chip active={scene.duration.mode === "auto"} onClick={() => { setDuration({ ...scene.duration, mode: "auto" }); commit(); }}>Auto</Chip>
         <Chip active={scene.duration.mode === "custom"} onClick={() => { setDuration({ ...scene.duration, mode: "custom" }); commit(); }}>Custom</Chip>
-        <span className="shrink-0 text-[12px] text-fg-muted">{length.seconds.toFixed(1)}s · {describe}</span>
       </Row>
+      <p className="text-[12px] text-fg-muted">{length.seconds.toFixed(1)}s · {describe}</p>
       {scene.duration.mode === "custom" && <Slider label="Seconds" value={scene.duration.seconds} min={1} max={60} step={0.5} onChange={(seconds) => setDuration({ mode: "custom", seconds })} format={(v) => `${v.toFixed(1)}s`} />}
     </div>
   );

@@ -63,10 +63,11 @@ export function Timeline() {
   const step = (frames: number) => seek((preview ? shown : 0) + frames / fps);
 
   return (
-    <section aria-label="Timeline" className="px-3 pt-1 pb-2">
+    <section aria-label="Timeline" className="relative px-3 pt-1 pb-2 lg:pt-3">
+      <span className="hidden lg:block absolute left-3 w-[104px] text-right text-[11px] text-fg-subtle" style={{ lineHeight: `${TILE_HEIGHT}px` }} aria-hidden>Frames</span>
       <div
         ref={stripRef}
-        className={`relative flex rounded-md overflow-hidden ring-2 ring-brand select-none ${sketching ? "opacity-60" : "cursor-ew-resize"}`}
+        className={`relative flex rounded-md overflow-hidden ring-2 ring-brand select-none lg:ml-[116px] ${sketching ? "opacity-60" : "cursor-ew-resize"}`}
         style={{ height: TILE_HEIGHT, touchAction: "none" }}
         onPointerDown={(e) => { if (!sketching) { e.currentTarget.setPointerCapture(e.pointerId); scrubTo(e.clientX); } }}
         onPointerMove={(e) => { if (!sketching && e.currentTarget.hasPointerCapture(e.pointerId)) scrubTo(e.clientX); }}
