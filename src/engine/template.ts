@@ -45,6 +45,10 @@ const SYMBOLS = {
   school: '<path d="M4 18l20-9 20 9-20 9z"/><path d="M12 22v10c7 6 17 6 24 0V22M44 18v12"/>',
   exit: '<path d="M10 42V6h22v36"/><path d="M6 42h34M24 24h18M36 18l6 6-6 6"/>',
   tap: '<circle cx="24" cy="18" r="6"/><circle cx="24" cy="18" r="13"/><path d="M24 24v20"/>',
+  check: '<path d="M8 25l10 10 22-22" stroke-width="5.5"/>',
+  cross: '<path d="M10 10l28 28M38 10L10 38" stroke-width="5.5"/>',
+  warn: '<path d="M24 6l20 35H4z"/><path d="M24 19v11M24 35.5v.5" stroke-width="3.6"/>',
+  star: '<path d="M24 5l5.9 12 13.1 1.9-9.5 9.3 2.2 13.1L24 35l-11.7 6.3 2.2-13.1L5 18.9 18.1 17z" fill="#000" stroke="none"/>',
 } as const;
 export type SymbolName = keyof typeof SYMBOLS;
 
@@ -71,12 +75,17 @@ export type Part = PartBase & (
   | { kind: "symbol"; symbol: SymbolName; x: number; y: number; tone?: Tone; size?: number }
 );
 
+/** The kind of picture a template is meant for; the gallery shows it on a sample of that kind. */
+export const SAMPLE_KINDS = ["plan", "map", "screen", "photo"] as const;
+export type SampleKind = (typeof SAMPLE_KINDS)[number];
+
 export interface TemplateSpec {
   v: 1;
   id: string;
   name: string;
   group: string;
   hint: string;
+  sample?: SampleKind;
   parts: Part[];
 }
 
@@ -166,7 +175,8 @@ export function parseTemplate(raw: unknown): TemplateSpec | null {
   if (!id || !/^[a-z0-9][a-z0-9-]*$/i.test(id) || !name) return null;
   const parts = r.parts.slice(0, MAX_PARTS).map(parsePart).filter((p): p is Part => p !== null);
   if (!parts.length) return null;
-  return { v: 1, id, name, group: str(r.group, 24) || "Other", hint: str(r.hint, 120) || "", parts };
+  const sample = SAMPLE_KINDS.find((kind) => kind === r.sample);
+  return { v: 1, id, name, group: str(r.group, 24) || "Other", hint: str(r.hint, 120) || "", ...(sample ? { sample } : {}), parts };
 }
 
 // ---------- building overlays ----------

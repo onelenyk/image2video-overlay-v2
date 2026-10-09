@@ -4,7 +4,7 @@ import { makePreset, type Preset } from "../../engine/scene";
 import type { Anim, AnimType, Asset, BoxEl, El, LineEl } from "../../engine/types";
 import { useEditor, type Mode } from "../../editor/store";
 import { MiniPreview } from "../MiniPreview";
-import { TemplateTile } from "../TemplateTile";
+import { TemplateGallery, type GalleryItem } from "../TemplateGallery";
 import { MARKERS } from "../markers";
 import { buildSaved, buildTemplate, type Built } from "../../engine/template";
 import { LIBRARY, PREVIEW_H, PREVIEW_W } from "../templateLibrary";
@@ -14,7 +14,8 @@ import { pickFile } from "../util";
 // Add overlay: ready-made overlays, grouped into sections. Anything drawn by
 // hand lives in the Draw tool instead.
 // On a phone one section is shown at a time (tabs on top); in the desktop side
-// column all sections are listed under their headings.
+// column there are two views: the template gallery, or all single overlays
+// listed under their headings.
 
 type SectionId = "templates" | "zones" | "arrows" | "text" | "icons" | "animated" | "images";
 
@@ -146,14 +147,17 @@ export function AddPanel() {
   // Previews are built once per template; the real thing is built for the actual stage on tap
   const library = useMemo(() => LIBRARY.map((spec) => ({ spec, preview: buildTemplate(spec, PREVIEW_W, PREVIEW_H) })), []);
   const mine = useMemo(() => savedTemplates.map((saved) => ({ saved, preview: buildSaved(saved, saved.w, saved.h) })), [savedTemplates]);
-  const templateGroups = [...new Set(library.map((item) => item.spec.group))];
+  const gallery: GalleryItem[] = [
+    ...mine.map(({ saved, preview }) => ({ id: saved.id, name: saved.name, hint: `${saved.elements.length} overlays, saved by you`, group: "Mine", built: preview, width: saved.w, height: saved.h, onPick: () => applyBuilt(saved.name, buildSaved(saved, scene.stage.w, scene.stage.h)), onDelete: () => void deleteTemplate(saved.id) })),
+    ...library.map(({ spec, preview }) => ({ id: spec.id, name: spec.name, hint: spec.hint, group: spec.group, sample: spec.sample, built: preview, width: PREVIEW_W, height: PREVIEW_H, onPick: () => applyBuilt(spec.name, buildTemplate(spec, scene.stage.w, scene.stage.h)) })),
+  ];
   const saveAll = () => {
     if (!scene.elements.length) { notify("Add some overlays first, then save them as a template."); return; }
     void saveTemplate(`My template ${savedTemplates.length + 1}`, null);
   };
 
   const content: Record<SectionId, ReactNode> = {
-    templates: null, // rendered separately below: larger tiles, grouped by use
+    templates: null, // the gallery, rendered separately below
     zones: (
       <>
         {overlay("Zone", "rect")}
@@ -243,42 +247,26 @@ export function AddPanel() {
         ))}
       </div>
 
-      {SECTIONS.map((item) => (
-        <section key={item.id} aria-label={item.label} className={section === item.id ? "" : "hidden lg:block"}>
+      {/* Wide: ready-made sets or single overlays */}
+      <div className="hidden lg:grid grid-cols-2 gap-1 p-1 rounded-control bg-chip" role="tablist" aria-label="What to add">
+        {([["templates", "Templates"], ["zones", "Shapes & text"]] as const).map(([id, label]) => {
+          const on = (section === "templates") === (id === "templates");
+          return <button key={id} type="button" role="tab" aria-selected={on} onClick={() => { if (!on) setSection(id); }} className={`h-8 rounded-[7px] text-[13px] font-semibold transition-colors ${on ? "bg-chip-active text-fg" : "text-fg-muted hover:text-fg"}`}>{label}</button>;
+        })}
+      </div>
+
+      {section === "templates" && (
+        <section aria-label="Templates">
+          <TemplateGallery items={gallery} />
+          <button type="button" onClick={saveAll} className="mt-3 w-full h-10 rounded-control bg-chip hover:bg-chip-hover text-[13px] font-semibold text-fg">Save current overlays as a template</button>
+        </section>
+      )}
+      {SECTIONS.filter((item) => item.id !== "templates").map((item) => (
+        <section key={item.id} aria-label={item.label} className={section === item.id ? "" : section === "templates" ? "hidden" : "hidden lg:block"}>
           <h3 className="hidden lg:block mb-2 text-[11px] font-semibold uppercase tracking-[0.09em] text-fg-subtle">{item.label}</h3>
-          {item.id === "templates" ? (
-            <>
-              {/* Phone: one scrolling row */}
-              <div className="lg:hidden flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
-                {mine.map(({ saved, preview }) => <TemplateTile key={saved.id} name={saved.name} note="My template" built={preview} width={saved.w} height={saved.h} onClick={() => applyBuilt(saved.name, buildSaved(saved, scene.stage.w, scene.stage.h))} onDelete={() => deleteTemplate(saved.id)} />)}
-                {library.map(({ spec, preview }) => <TemplateTile key={spec.id} name={spec.name} note={spec.group} built={preview} group={spec.group} onClick={() => applyBuilt(spec.name, buildTemplate(spec, scene.stage.w, scene.stage.h))} />)}
-              </div>
-              {/* Wide: grouped by what they are for */}
-              <div className="hidden lg:block space-y-3">
-                {mine.length > 0 && (
-                  <div>
-                    <h4 className="mb-1.5 text-[12px] font-medium text-fg-muted">My templates</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {mine.map(({ saved, preview }) => <TemplateTile key={saved.id} name={saved.name} note={`${saved.elements.length} overlays`} built={preview} width={saved.w} height={saved.h} onClick={() => applyBuilt(saved.name, buildSaved(saved, scene.stage.w, scene.stage.h))} onDelete={() => deleteTemplate(saved.id)} />)}
-                    </div>
-                  </div>
-                )}
-                {templateGroups.map((group) => (
-                  <div key={group}>
-                    <h4 className="mb-1.5 text-[12px] font-medium text-fg-muted">{group}</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {library.filter((entry) => entry.spec.group === group).map(({ spec, preview }) => <TemplateTile key={spec.id} name={spec.name} note={spec.hint} built={preview} group={spec.group} onClick={() => applyBuilt(spec.name, buildTemplate(spec, scene.stage.w, scene.stage.h))} />)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button type="button" onClick={saveAll} className="mt-2 w-full h-10 rounded-control bg-chip hover:bg-chip-hover text-[13px] font-semibold text-fg">Save current overlays as a template</button>
-            </>
-          ) : (
-            <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 lg:overflow-visible">
-              {content[item.id]}
-            </div>
-          )}
+          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 lg:overflow-visible">
+            {content[item.id]}
+          </div>
           {item.id === "icons" && <div className="mt-3"><IconSearch onPick={(svg) => addMarker(svg)} /></div>}
         </section>
       ))}

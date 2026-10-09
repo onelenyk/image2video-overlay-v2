@@ -57,8 +57,8 @@ export function MiniPreview({ el, assets = NO_ASSETS, animate = false, className
   return <canvas ref={ref} className={className} aria-hidden />;
 }
 
-/** A looping preview of several overlays together on a W x H stage (used for templates). */
-export function ScenePreview({ elements, assets, width, height, seconds, startAt = 0, className = "" }: { elements: El[]; assets: Record<string, Asset>; width: number; height: number; seconds: number; /** Where in the loop the preview opens, e.g. on the finished picture. */ startAt?: number; className?: string }) {
+/** A preview of several overlays together on a W x H stage (used for templates): a loop, or one still frame. */
+export function ScenePreview({ elements, assets, width, height, seconds, startAt = 0, playing = true, className = "" }: { elements: El[]; assets: Record<string, Asset>; width: number; height: number; seconds: number; /** Where in the loop the preview opens (or stays, when it is not playing). */ startAt?: number; playing?: boolean; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const signature = JSON.stringify(elements);
 
@@ -84,18 +84,22 @@ export function ScenePreview({ elements, assets, width, height, seconds, startAt
     const bufferCtx = buffer.getContext("2d")!;
     let disposed = false;
     let first: number | null = null;
-    void preloadAssets(assets).then(() => { if (!disposed) paint(first ?? 0); });
-    const paint = (now: number) => {
-      first ??= now;
+    const draw = (time: number) => {
       bufferCtx.setTransform(1, 0, 0, 1, 0, 0);
       bufferCtx.clearRect(0, 0, w, h);
-      drawScene(bufferCtx, scene, { width: w, height: h, assets, time: (now - first + startAt) % seconds });
+      drawScene(bufferCtx, scene, { width: w, height: h, assets, time });
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(buffer, (canvas.width - w) / 2, (canvas.height - h) / 2);
     };
-    const stop = subscribe(paint);
+    const paint = (now: number) => {
+      first ??= now;
+      draw((now - first + startAt) % seconds);
+    };
+    draw(startAt % seconds);
+    void preloadAssets(assets).then(() => { if (!disposed && (!playing || first === null)) draw(startAt % seconds); });
+    const stop = playing ? subscribe(paint) : () => {};
     return () => { disposed = true; stop(); };
-  }, [signature, assets, width, height, seconds, startAt]);
+  }, [signature, assets, width, height, seconds, startAt, playing]);
 
   return <canvas ref={ref} className={className} aria-hidden />;
 }

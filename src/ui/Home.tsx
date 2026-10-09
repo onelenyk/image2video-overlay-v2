@@ -6,7 +6,7 @@ import { useEditor } from "../editor/store";
 import { HelpSheet } from "./HelpSheet";
 import { Logo } from "./Logo";
 import { Button, Icon, IconButton, Row } from "./kit";
-import { TemplateTile } from "./TemplateTile";
+import { TemplateGallery, type GalleryItem } from "./TemplateGallery";
 import { LIBRARY, PREVIEW_H, PREVIEW_W } from "./templateLibrary";
 import { useImageDrop } from "./useImageDrop";
 import { pickFile } from "./util";
@@ -126,7 +126,7 @@ export function Home() {
     state.seek(0);
     state.play();
   };
-  const library = useMemo(() => LIBRARY.map((spec) => ({ spec, preview: buildTemplate(spec, PREVIEW_W, PREVIEW_H) })), []);
+  const library = useMemo<GalleryItem[]>(() => LIBRARY.map((spec) => ({ id: spec.id, name: spec.name, hint: spec.hint, group: spec.group, sample: spec.sample, built: buildTemplate(spec, PREVIEW_W, PREVIEW_H), width: PREVIEW_W, height: PREVIEW_H, onPick: () => void fromTemplate(spec) })), []); // eslint-disable-line react-hooks/exhaustive-deps -- fromTemplate reads the store when called
 
   return (
     <div
@@ -185,13 +185,7 @@ export function Home() {
             <h2 id="start-template" className="text-caption font-bold uppercase tracking-widest text-fg-subtle">Start from a template</h2>
             <p className="text-caption text-fg-subtle">Pick one, choose your photo, then adjust.</p>
           </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:-mx-8 sm:px-8">
-            {library.map(({ spec, preview }) => (
-              <div key={spec.id} className="shrink-0 w-[150px] [&>div]:!w-full">
-                <TemplateTile name={spec.name} note={spec.group} built={preview} group={spec.group} onClick={() => fromTemplate(spec)} />
-              </div>
-            ))}
-          </div>
+          <TemplateGallery items={library} layout="row" />
         </section>
 
         {projects.length > 0 ? (
