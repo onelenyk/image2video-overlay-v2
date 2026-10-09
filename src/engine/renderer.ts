@@ -1,3 +1,4 @@
+import { codeBitmap } from "./codeFrames";
 import { IDENTITY, poseAt, type Pose } from "./animations";
 import { DEG, boundsOf, existsAt, lineEnds, presenceAt, revealByFraction, revealByTimes, sliceByFraction } from "./geometry";
 import type { Anim, Asset, BoxEl, El, ImageEl, Label, PointEl, Scene, Vec } from "./types";
@@ -15,6 +16,8 @@ export interface RenderEnv {
   assets: Record<string, Asset>;
   /** Timeline time in seconds; null = "show everything" view (no animation, all strokes complete). */
   time: number | null;
+  /** true = the frames of code overlays were prepared for exactly this moment (export); do not ask for others. */
+  exact?: boolean;
   /**
    * false = a still frame for editing: elements and strokes appear according to
    * `time`, but looping animations are frozen so handles sit on the element.
@@ -430,6 +433,28 @@ function drawElement(ctx: CanvasRenderingContext2D, el: El, scene: Scene, s: num
       ctx.stroke(outline);
       ctx.setLineDash([]);
     }
+  } else if (el.type === "code") {
+    // Drawn by the overlay's own code, in the sandbox; here only its latest picture is placed
+    const bitmap = codeBitmap(el, env.time, s, !!env.exact);
+    ctx.globalAlpha = pose.alpha * el.opacity;
+    if (pose.trace != null) { ctx.beginPath(); ctx.rect(-el.w / 2, -el.h / 2, el.w * pose.trace, el.h); ctx.clip(); }
+    if (bitmap) {
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(bitmap, -el.w / 2, -el.h / 2, el.w, el.h);
+    } else if (!env.exact) {
+      // Nothing to show yet (still loading, or the code has an error): mark where it is
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([12, 8]);
+      ctx.stroke(outline);
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.font = `700 ${Math.min(el.h * 0.4, el.w * 0.25, 64)}px ui-monospace, Menlo, monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("</>", 0, 0);
+    }
+    ctx.shadowBlur = 0;
   } else if (el.type === "line") {
     const ends = lineEnds(el, scene);
     const a = local(ends.a), bEnd = local(ends.b);

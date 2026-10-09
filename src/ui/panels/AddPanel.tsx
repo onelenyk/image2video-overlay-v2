@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { prepareSvg } from "../../engine/renderer";
-import { makePreset, type Preset } from "../../engine/scene";
+import { makeCode, makePreset, type Preset } from "../../engine/scene";
+import { CODE_EXAMPLES, exampleCode } from "../codeExamples";
 import type { Anim, AnimType, Asset, BoxEl, El, LineEl } from "../../engine/types";
 import { useEditor, type Mode } from "../../editor/store";
 import { MiniPreview } from "../MiniPreview";
@@ -19,7 +20,7 @@ import { m, t, tn, type Msg } from "../../i18n";
 // column there are two views: the template gallery, or all single overlays
 // listed under their headings.
 
-type SectionId = "templates" | "zones" | "arrows" | "text" | "icons" | "animated" | "images";
+type SectionId = "templates" | "zones" | "arrows" | "text" | "icons" | "animated" | "images" | "code";
 
 const SECTIONS: { id: SectionId; label: Msg }[] = [
   { id: "templates", label: m("Templates") },
@@ -29,6 +30,7 @@ const SECTIONS: { id: SectionId; label: Msg }[] = [
   { id: "icons", label: m("Icons") },
   { id: "animated", label: m("Animated") },
   { id: "images", label: m("Images") },
+  { id: "code", label: m("Code") },
 ];
 
 const YELLOW = "#ffd60a";
@@ -214,6 +216,15 @@ export function AddPanel() {
           <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor" aria-hidden><path d={pin.path} /></svg>
         </Tile>
         {overlay("Pop label", "rect", { ...box({ w: 300, h: 90, radius: 45, opacity: 1, borderWidth: 0, color: YELLOW }, { text: t("Look here"), size: 40, color: "#000000" }), anim: anim("pop", 3) }, "animate")}
+      </>
+    ),
+    code: (
+      <>
+        {CODE_EXAMPLES.map((example) => (
+          <Tile key={example.id} label={t(example.name)} onClick={() => { addElement(makeCode(scene, t(example.name), exampleCode(example), { w: example.w, h: example.h })); setTool("style"); }}>
+            <span className="font-mono text-[15px] font-bold text-brand" aria-hidden>{"</>"}</span>
+          </Tile>
+        ))}
       </>
     ),
     images: (

@@ -1,4 +1,5 @@
 export const ai = {
+  "Lively: let the AI write code for motion": "Жвавіше: дозволити AI писати код для руху",
   "Template with AI": "Шаблон з AI",
   "Create with AI": "Створити з AI",
   "AI provider key": "Ключ AI-провайдера",
@@ -30,3 +31,8 @@ export const ai = {
   "A route from the metro to our office with the walking time": "Маршрут від метро до нашого офісу з часом пішки",
   "Before and after: two halves with labels and an arrow between them": "До і після: дві половини з підписами і стрілкою між ними",
 } as const;
+
+export const aiPlurals = {
+  "{n} part": ["{n} частина", "{n} частини", "{n} частин"],
+  "{n} drawn by code": ["{n} намальована кодом", "{n} намальовані кодом", "{n} намальовано кодом"],
+} as const satisfies Record<string, readonly [string, string, string]>;

@@ -1,4 +1,5 @@
 import { ArrayBufferTarget, Muxer } from "mp4-muxer";
+import { hasCode, prepareCodeFrames } from "./codeFrames";
 import { drawScene, preloadAssets, prescale, type RenderEnv } from "./renderer";
 import type { Asset, Scene, Stage } from "./types";
 import { t } from "../i18n";
@@ -109,11 +110,15 @@ async function encodeOffline(o: ExportOptions, video: VideoEncoderConfig): Promi
 
   const total = Math.max(1, Math.round(duration * fps));
   const frameUs = 1e6 / fps;
+  // Code overlays are drawn in a sandbox: each frame waits for their pictures, so the video is exact
+  const coded = hasCode(o.scene);
+  env.exact = coded;
   try {
     for (let i = 0; i < total; i++) {
       if (o.signal?.aborted) throw abortError();
       if (failure) throw failure;
       env.time = i / fps;
+      if (coded) await prepareCodeFrames(o.scene, env.time, o.width / o.scene.stage.w);
       drawScene(ctx, o.scene, env);
       const frame = new VideoFrame(canvas, { timestamp: Math.round(i * frameUs), duration: Math.round(frameUs) });
       encoder.encode(frame, { keyFrame: i % (fps * 2) === 0 });
@@ -201,9 +206,10 @@ export async function exportVideo(o: ExportOptions): Promise<ExportResult> {
 /** A single frame as PNG. `time` null = the editing view (everything visible, no animation). */
 export async function exportPng(scene: Scene, assets: Record<string, Asset>, image: HTMLImageElement | null, width: number, height: number, time: number | null): Promise<Blob | null> {
   await preloadAssets(assets);
+  await prepareCodeFrames(scene, time, width / scene.stage.w);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  drawScene(canvas.getContext("2d")!, scene, { width, height, assets, image, time });
+  drawScene(canvas.getContext("2d")!, scene, { width, height, assets, image, time, exact: hasCode(scene) });
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }

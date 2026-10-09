@@ -9,7 +9,7 @@ export interface Vec {
   y: number;
 }
 
-export type ElType = "box" | "point" | "line" | "polygon" | "image" | "path";
+export type ElType = "box" | "point" | "line" | "polygon" | "image" | "path" | "code";
 
 export type AnimType =
   | "pulse" | "bounce" | "fade" | "shake" | "flash" | "spin" | "zoom" | "float"
@@ -121,7 +121,17 @@ export interface PathEl extends Base {
   sketch?: SketchTiming;
 }
 
-export type El = BoxEl | PointEl | LineEl | PolygonEl | ImageEl | PathEl;
+/** Drawn by the user's own code, frame by frame, in a sandbox (see codeRunner.ts). */
+export interface CodeEl extends Base {
+  type: "code";
+  x: number; y: number; w: number; h: number; rot: number;
+  /** JavaScript defining `function draw(ctx, t, w, h, p)`; `t` is seconds since the overlay appeared. */
+  code: string;
+  /** Values of the settings the code declares. */
+  params: Record<string, number | string | boolean>;
+}
+
+export type El = BoxEl | PointEl | LineEl | PolygonEl | ImageEl | PathEl | CodeEl;
 
 export interface Stage {
   w: number;

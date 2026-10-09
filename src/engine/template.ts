@@ -1,7 +1,8 @@
 import { ANIMATIONS, animationsFor } from "./animations";
+import { MAX_CODE } from "./codeRunner";
 import { prepareSvg } from "./renderer";
 import { defaultAnim, normalizeScene } from "./scene";
-import type { Anim, AnimType, Asset, BoxEl, El, ImageEl, LineEl, PathEl, PointEl, PolygonEl, Scene, Timing, Vec } from "./types";
+import type { Anim, AnimType, Asset, BoxEl, CodeEl, El, ImageEl, LineEl, PathEl, PointEl, PolygonEl, Scene, Timing, Vec } from "./types";
 
 // Templates are DATA, not code. A template lists parts ("a pill here, a route
 // there") in fractions of the stage and in style tokens; this module checks the
@@ -76,6 +77,8 @@ export type Part = PartBase & (
   | { kind: "line"; from: [number, number]; to: [number, number]; tone?: Tone; arrow?: "none" | "end" | "both"; dashed?: boolean; weight?: keyof typeof STYLE.stroke }
   | { kind: "route"; points: [number, number][]; tone?: Tone; seconds?: number; straight?: boolean; weight?: keyof typeof STYLE.stroke }
   | { kind: "symbol"; symbol: SymbolName; x: number; y: number; tone?: Tone; size?: number }
+  /** A box drawn by code (see codeRunner.ts): x, y is its top-left corner. The code only ever runs in the sandbox. */
+  | { kind: "code"; x: number; y: number; w: number; h: number; code: string; params?: Record<string, number | string | boolean> }
 );
 
 /** The kind of picture a template is meant for; the gallery shows it on a sample of that kind. */
@@ -164,6 +167,19 @@ function parsePart(raw: unknown): Part | null {
       const points = pairs(r.points, 2);
       return points ? { ...common, kind: "route", points, tone, seconds: num(r.seconds, 0.2, 20, STYLE.drawSeconds)!, straight: r.straight === true, weight: oneOf(r.weight, WEIGHTS, "bold") } : null;
     }
+    case "code": {
+      const w = num(r.w, 0.02, 1.5), h = num(r.h, 0.02, 1.5);
+      if (x === null || y === null || w === null || h === null || typeof r.code !== "string" || !r.code.trim() || r.code.length > MAX_CODE) return null;
+      const params: Record<string, number | string | boolean> = {};
+      if (r.params && typeof r.params === "object" && !Array.isArray(r.params)) {
+        for (const [key, value] of Object.entries(r.params as Record<string, unknown>).slice(0, 12)) {
+          if (!/^[a-zA-Z_]\w{0,23}$/.test(key)) continue;
+          if (typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value))) params[key] = value;
+          else if (typeof value === "string") params[key] = value.slice(0, 200);
+        }
+      }
+      return { ...common, kind: "code", x, y, w, h, code: r.code, params };
+    }
     case "symbol":
       if (x === null || y === null || typeof r.symbol !== "string" || !Object.hasOwn(SYMBOLS, r.symbol)) return null;
       return { ...common, kind: "symbol", symbol: r.symbol as SymbolName, x, y, tone: oneOf(r.tone, TONES, "light"), size: num(r.size, 0.03, 0.8) ?? undefined };
@@ -206,6 +222,7 @@ export function partName(part: Part): string {
     case "line": return part.arrow && part.arrow !== "none" ? "Arrow" : "Line";
     case "route": return "Route";
     case "symbol": return capital(part.symbol);
+    case "code": return "Code";
   }
 }
 
@@ -265,6 +282,9 @@ export function buildTemplate(spec: TemplateSpec, W: number, H: number): Built {
         el = { ...base(name, color), type: "path", points, width: STYLE.stroke[part.weight ?? "bold"], smooth: !part.straight, glow: 0, sketch: { start: part.at ?? 0, times, hold: part.until != null ? Math.max(0, part.until - (part.at ?? 0) - (part.seconds ?? STYLE.drawSeconds)) : null, fade: 0.4 } } satisfies PathEl;
         break;
       }
+      case "code":
+        el = { ...base(name, STYLE.tone.accent), type: "code", x: W * part.x, y: H * part.y, w: W * part.w, h: H * part.h, rot: 0, code: part.code, params: part.params ?? {} } satisfies CodeEl;
+        break;
       case "symbol": {
         const key = `symbol-${part.symbol}`;
         if (!assets[key]) {

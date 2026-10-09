@@ -5,7 +5,7 @@ import { useEditor } from "../../editor/store";
 import { Icon, IconButton } from "../kit";
 import { m, t, tn, type Msg } from "../../i18n";
 
-const KIND: Record<El["type"], Msg> = { box: m("Zone"), point: m("Point"), line: m("Line"), polygon: m("Shape~kind"), image: m("Image"), path: m("Drawing") };
+const KIND: Record<El["type"], Msg> = { box: m("Zone"), point: m("Point"), line: m("Line"), polygon: m("Shape~kind"), image: m("Image"), path: m("Drawing"), code: m("Code") };
 
 // A row is the name and one eye. The rest of the actions appear under the row that is selected,
 // so names keep the width of the column.

@@ -1,3 +1,4 @@
+import { MAX_CODE } from "./codeRunner";
 import { ANIMATIONS, loopLength } from "./animations";
 import { ASPECTS, STAGE_W, type Anim, type Asset, type El, type ElType, type Label, type Scene, type SketchTiming, type Vec } from "./types";
 import { m, t, type Msg } from "../i18n";
@@ -69,6 +70,13 @@ export function makeImage(scene: Scene, assetKey: string, asset: Asset, color = 
   return { ...base(scene, "image", color), type: "image", x: scene.stage.w / 2 - w / 2 + step, y: scene.stage.h / 2 - h / 2 + step, w, h, rot: 0, asset: assetKey, tint: asset.format === "svg" };
 }
 
+/** A code overlay in the middle of the stage. */
+export function makeCode(scene: Scene, name: string, code: string, size: { w: number; h: number }, params: Record<string, number | string | boolean> = {}): El {
+  const step = (scene.elements.length % 6) * 24;
+  const w = Math.min(size.w, scene.stage.w * 0.9), h = Math.min(size.h, scene.stage.h * 0.9);
+  return { id: `e${scene.nextId}`, name, color: "#ffd60a", opacity: 1, visible: true, anim: defaultAnim(), type: "code", x: scene.stage.w / 2 - w / 2 + step, y: scene.stage.h / 2 - h / 2 + step, w, h, rot: 0, code, params };
+}
+
 export function makePath(scene: Scene, points: Vec[], o: { color: string; width: number; opacity?: number; glow?: number; smooth?: boolean; sketch?: SketchTiming }): El {
   return { ...base(scene, o.sketch ? "sketch" : "path", o.color), type: "path", points, width: o.width, smooth: o.smooth ?? true, glow: o.glow ?? 0, opacity: o.opacity ?? 1, sketch: o.sketch };
 }
@@ -112,17 +120,20 @@ export function videoLength(scene: Scene, narrationSeconds = 0): VideoLength {
 }
 
 // ---------- loading ----------
-const TYPES: ElType[] = ["box", "point", "line", "polygon", "image", "path"];
+const TYPES: ElType[] = ["box", "point", "line", "polygon", "image", "path", "code"];
 const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const isVec = (v: unknown): v is Vec => !!v && isNum((v as Vec).x) && isNum((v as Vec).y);
 const isLabel = (v: unknown) => !!v && typeof (v as { text: unknown }).text === "string" && isNum((v as { size: unknown }).size);
+
+const isParams = (v: unknown) => !!v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length <= 12 && Object.values(v).every((x) => typeof x === "boolean" || isNum(x) || (typeof x === "string" && x.length <= 200));
 
 /** Does a stored element have every field the renderer reads for its type? */
 function wellFormed(el: El): boolean {
   switch (el.type) {
     case "box": return [el.x, el.y, el.w, el.h, el.rot].every(isNum) && isLabel(el.label);
     case "image": return [el.x, el.y, el.w, el.h, el.rot].every(isNum) && typeof el.asset === "string";
+    case "code": return [el.x, el.y, el.w, el.h, el.rot].every(isNum) && typeof el.code === "string" && el.code.length <= MAX_CODE && isParams(el.params);
     case "point": return [el.x, el.y, el.r].every(isNum) && isLabel(el.label);
     case "line": return isVec(el.a) && isVec(el.b) && isNum(el.width);
     case "polygon": return Array.isArray(el.points) && el.points.every(isVec) && isNum(el.width);

@@ -34,7 +34,7 @@ const deepseek: Provider = {
         method: "POST",
         signal,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model: "deepseek-chat", messages, response_format: { type: "json_object" }, temperature: 0.7, max_tokens: 3000 }),
+        body: JSON.stringify({ model: "deepseek-chat", messages, response_format: { type: "json_object" }, temperature: 0.8, max_tokens: 8000 }),
       });
     } catch (error) {
       if ((error as Error).name === "AbortError") throw error;

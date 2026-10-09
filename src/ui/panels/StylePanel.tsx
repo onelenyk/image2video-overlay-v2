@@ -1,3 +1,4 @@
+import { CodeEditor } from "../CodeEditor";
 import { useState } from "react";
 import { hexToRgb, rgbToHex } from "../../engine/renderer";
 import type { El, Label } from "../../engine/types";
@@ -5,7 +6,7 @@ import { selectedElement, useEditor } from "../../editor/store";
 import { Button, Chip, ColorRow, ConfirmButton, NumberField, Row, Slider, Toggle } from "../kit";
 import { m, t, type Msg } from "../../i18n";
 
-type Prop = "color" | "opacity" | "border" | "shape" | "label" | "stroke" | "ends" | "size" | "arrange";
+type Prop = "code" | "color" | "opacity" | "border" | "shape" | "label" | "stroke" | "ends" | "size" | "arrange";
 
 const PROPS: Record<El["type"], Prop[]> = {
   box: ["color", "opacity", "border", "shape", "label", "size", "arrange"],
@@ -14,8 +15,9 @@ const PROPS: Record<El["type"], Prop[]> = {
   polygon: ["color", "opacity", "stroke", "shape", "arrange"],
   image: ["color", "opacity", "size", "arrange"],
   path: ["color", "opacity", "stroke", "arrange"],
+  code: ["code", "opacity", "size", "arrange"],
 };
-const LABELS: Record<Prop, Msg> = { color: m("Color"), opacity: m("Opacity"), border: m("Border"), shape: m("Shape"), label: m("Label"), stroke: m("Stroke~style"), ends: m("Arrows"), size: m("Size"), arrange: m("Arrange") };
+const LABELS: Record<Prop, Msg> = { code: m("Code"), color: m("Color"), opacity: m("Opacity"), border: m("Border"), shape: m("Shape"), label: m("Label"), stroke: m("Stroke~style"), ends: m("Arrows"), size: m("Size"), arrange: m("Arrange") };
 
 // "rgba(…)", "rgb(…)", "#rgb", "#rgba", "#rrggbb", "#rrggbbaa" -> colour and optional opacity
 function parseColor(text: string): { color: string; opacity?: number } | null {
@@ -54,6 +56,7 @@ export function StylePanel() {
   // The controls of one property
   const controls = (prop: Prop) => (
     <>
+        {prop === "code" && el.type === "code" && <CodeEditor key={el.id} el={el} />}
         {prop === "color" && (
           <div className="space-y-2">
             <ColorRow value={el.color} onChange={(color) => set({ color })} />
@@ -139,15 +142,15 @@ export function StylePanel() {
           </>
         )}
 
-        {prop === "size" && (el.type === "box" || el.type === "image") && (
+        {prop === "size" && (el.type === "box" || el.type === "image" || el.type === "code") && (
           <>
             <Slider label={t("Width")} value={el.w} min={12} max={1000} onChange={(w) => set(el.type === "image" ? { w, h: (w * el.h) / el.w } : { w })} />
-            {el.type === "box" && <Slider label={t("Height")} value={el.h} min={12} max={2000} onChange={(h) => set({ h })} />}
+            {(el.type === "box" || el.type === "code") && <Slider label={t("Height")} value={el.h} min={12} max={2000} onChange={(h) => set({ h })} />}
             <Slider label={t("Rotation")} value={el.rot} min={0} max={360} onChange={(rot) => set({ rot })} format={(v) => `${Math.round(v)}°`} />
           </>
         )}
         {/* Exact place of the centre, in stage units (the stage is 1000 wide) */}
-        {prop === "size" && (el.type === "box" || el.type === "image") && (
+        {prop === "size" && (el.type === "box" || el.type === "image" || el.type === "code") && (
           <div className="flex gap-3">
             <NumberField label="X" value={el.x + el.w / 2} min={-2000} max={3000} onChange={(x) => set({ x: x - el.w / 2 })} />
             <NumberField label="Y" value={el.y + el.h / 2} min={-2000} max={6000} onChange={(y) => set({ y: y - el.h / 2 })} />

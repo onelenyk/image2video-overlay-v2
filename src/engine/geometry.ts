@@ -46,6 +46,7 @@ function resolveAnchor(ref: Anchor, scene: Scene, seen: Set<string>): Vec | null
       return typeof ref.at === "number" ? target.points[ref.at] ?? null : null;
     case "box":
     case "image":
+    case "code":
       return { x: target.x + target.w / 2, y: target.y + target.h / 2 };
     default:
       return null;
@@ -69,7 +70,7 @@ export function strokePoints(el: El, scene: Scene): Vec[] {
 
 /** Unrotated bounding box plus rotation. */
 export function boundsOf(el: El, scene: Scene): Box {
-  if (el.type === "box" || el.type === "image") return { x: el.x, y: el.y, w: el.w, h: el.h, rot: el.rot };
+  if (el.type === "box" || el.type === "image" || el.type === "code") return { x: el.x, y: el.y, w: el.w, h: el.h, rot: el.rot };
   if (el.type === "point") return { x: el.x - el.r, y: el.y - el.r, w: el.r * 2, h: el.r * 2, rot: 0 };
   const pts = strokePoints(el, scene);
   if (!pts.length) return { x: 0, y: 0, w: 0, h: 0, rot: 0 };
@@ -107,7 +108,7 @@ function insidePolygon(p: Vec, pts: Vec[]): boolean {
 
 /** Is stage point `p` on the element? `tol` widens thin targets (fingers). */
 export function hitTest(el: El, scene: Scene, p: Vec, tol: number): boolean {
-  if (el.type === "box" || el.type === "image") {
+  if (el.type === "box" || el.type === "image" || el.type === "code") {
     const l = toLocal(el, p), pad = Math.max(0, tol - Math.min(el.w, el.h) / 2);
     return Math.abs(l.x) <= el.w / 2 + pad && Math.abs(l.y) <= el.h / 2 + pad;
   }

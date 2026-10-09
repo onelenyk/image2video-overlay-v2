@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DEG, boundsOf, existsAt, hitTest, lineEnds, moved, toLocal, type Box } from "../engine/geometry";
+import { onCodeFrame } from "../engine/codeFrames";
 import { drawScene, preloadAssets, prescale } from "../engine/renderer";
 import { makePolygon } from "../engine/scene";
 import type { Anchor, El, LineEl, PolygonEl, Scene, Vec } from "../engine/types";
@@ -94,6 +95,7 @@ export function EditorCanvas() {
     let pointer: { x: number; y: number } | null = null; // client px, while the pointer is over the stage area
     let aidsDirty = true; // rulers and magnifier follow the pointer without repainting the scene
     const unsubscribeHelpers = useHelpers.subscribe(() => { dirty = true; });
+    const unsubscribeCode = onCodeFrame(() => { dirty = true; });
     let hoverSnap: Vec | null = null;
     let background: { key: string; canvas: HTMLCanvasElement } | null = null;
     let lastKey: unknown[] = [];
@@ -372,7 +374,7 @@ export function EditorCanvas() {
       ctx.strokeStyle = "#ffffff";
       ctx.strokeRect(-w / 2, -h / 2, w, h);
       ctx.setLineDash([]);
-      if (onScreen && (el.type === "box" || el.type === "image")) {
+      if (onScreen && (el.type === "box" || el.type === "image" || el.type === "code")) {
         const ry = rotateHandleY(el, 1 / (v / dpr)) * v;
         ctx.beginPath(); ctx.moveTo(0, Math.sign(ry) * (h / 2)); ctx.lineTo(0, ry); ctx.stroke();
         ctx.fillStyle = "#ffffff";
@@ -443,7 +445,7 @@ export function EditorCanvas() {
 
     const findHandle = (el: El, scene: Scene, p: Vec & { k: number }, e: PointerEvent): Drag | null => {
       const r = reach(e, p.k);
-      if (el.type === "box" || el.type === "image") {
+      if (el.type === "box" || el.type === "image" || el.type === "code") {
         const l = toLocal(el, p);
         if (Math.hypot(l.x, l.y - rotateHandleY(el, p.k)) <= r * 1.2) return { kind: "rotate", id: el.id, origin: el, moved: false };
         // The nearest handle wins, but only when the press is nearer to it than to the
@@ -884,6 +886,7 @@ export function EditorCanvas() {
       clearTimeout(settleTimer);
       observer.disconnect();
       unsubscribeHelpers();
+      unsubscribeCode();
       host.removeEventListener("pointermove", onHover);
       host.removeEventListener("pointerdown", onHover);
       host.removeEventListener("pointerleave", onLeave);

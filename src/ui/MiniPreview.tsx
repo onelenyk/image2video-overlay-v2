@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { boundsOf, moved } from "../engine/geometry";
+import { onCodeFrame } from "../engine/codeFrames";
 import { drawScene, preloadAssets } from "../engine/renderer";
 import type { Asset, El, Scene } from "../engine/types";
 
@@ -98,7 +99,9 @@ export function ScenePreview({ elements, assets, width, height, seconds, startAt
     draw(startAt % seconds);
     void preloadAssets(assets).then(() => { if (!disposed && (!playing || first === null)) draw(startAt % seconds); });
     const stop = playing ? subscribe(paint) : () => {};
-    return () => { disposed = true; stop(); };
+    // A still tile repaints when a code overlay's picture arrives
+    const stopCode = playing ? () => {} : onCodeFrame(() => { if (!disposed) draw(startAt % seconds); });
+    return () => { disposed = true; stop(); stopCode(); };
   }, [signature, assets, width, height, seconds, startAt, playing]);
 
   return <canvas ref={ref} className={className} style={style} aria-hidden />;

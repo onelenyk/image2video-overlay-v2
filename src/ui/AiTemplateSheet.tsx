@@ -3,8 +3,8 @@ import { AiError, DEFAULT_PROVIDER, loadKey, saveKey, type AiFailure } from "../
 import { draftTemplate, type AiDraft } from "../ai/template";
 import { useEditor } from "../editor/store";
 import { buildTemplate, type Built } from "../engine/template";
-import { m, t, type Msg } from "../i18n";
-import { Button, Sheet } from "./kit";
+import { m, t, tn, type Msg } from "../i18n";
+import { Button, Sheet, Toggle } from "./kit";
 import { ScenePreview } from "./MiniPreview";
 
 const provider = DEFAULT_PROVIDER;
@@ -38,6 +38,7 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<AiFailure | null>(null);
   const [saved, setSaved] = useState(false);
+  const [rich, setRich] = useState(true);
   const running = useRef<AbortController | null>(null);
   useEffect(() => () => running.current?.abort(), []);
 
@@ -62,7 +63,7 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
     setBusy(true);
     setFailure(null);
     try {
-      const next = await draftTemplate(provider, key, text, stage.w / stage.h, previous, control.signal);
+      const next = await draftTemplate(provider, key, text, stage.w / stage.h, rich, previous, control.signal);
       setDraft(next);
       setChange("");
       setSaved(false);
@@ -76,6 +77,7 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
     }
   };
 
+  const coded = draft ? draft.spec.parts.filter((part) => part.kind === "code").length : 0;
   const needsKey = !key || editingKey;
   return (
     <Sheet title={t("Template with AI")} onClose={onClose}>
@@ -102,6 +104,7 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
                 <button key={idea} type="button" onClick={() => setRequest(t(idea))} className="max-w-full px-3 py-1.5 rounded-control bg-chip-hover hover:bg-chip-active text-[12px] text-fg-muted text-left">{t(idea)}</button>
               ))}
             </div>
+            <Toggle label={t("Lively: let the AI write code for motion")} checked={rich} onChange={setRich} />
             <Button primary disabled={!request.trim() || busy} onClick={() => void run(request)} className="w-full">{busy ? t("Drawing the template…") : t("Create template")}</Button>
             <p className="text-[12px] leading-snug text-fg-subtle">{t("The model does not see your photo: it lays things out by your description, and you drag them into place afterwards.")}</p>
           </section>
@@ -114,6 +117,7 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
             <div>
               <div className="text-[15px] font-semibold text-fg">{draft.spec.name}</div>
               <div className="text-[13px] leading-snug text-fg-muted">{draft.spec.hint}</div>
+              <div className="text-[12px] text-fg-subtle">{tn(draft.spec.parts.length, "{n} part", "{n} parts")}{coded > 0 ? ` · ${tn(coded, "{n} drawn by code", "{n} drawn by code")}` : ""}</div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Button primary onClick={() => onAdd(draft.spec.name, built)}>{t("Add to the photo")}</Button>
