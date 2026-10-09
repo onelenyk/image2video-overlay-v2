@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEditor } from "../editor/store";
 import { SWATCHES } from "./util";
+import { t } from "../i18n";
 
 // Small building blocks shared by the editor panels. Everything is sized for
 // fingers first: controls are at least 44px tall and text is 13px or larger.
@@ -163,13 +164,13 @@ export function ColorRow({ value, onChange }: { value: string; onChange: (color:
         <button
           key={color}
           type="button"
-          aria-label={`Color ${color}`}
+          aria-label={t("Color {hex}", { hex: color })}
           onClick={() => { onChange(color); commit(); }}
           className={`shrink-0 w-9 h-9 rounded-full ${value.toLowerCase() === color ? "ring-2 ring-fg ring-offset-2 ring-offset-ink" : ""}`}
           style={{ background: color }}
         />
       ))}
-      <label className="shrink-0 w-9 h-9 rounded-full bg-chip grid place-items-center overflow-hidden cursor-pointer" title="Custom color">
+      <label className="shrink-0 w-9 h-9 rounded-full bg-chip grid place-items-center overflow-hidden cursor-pointer" title={t("Custom color")}>
         <span className="text-[15px] leading-none text-fg-muted">+</span>
         <input type="color" value={value} onChange={(e) => onChange(e.target.value)} onBlur={commit} className="sr-only" />
       </label>
@@ -178,7 +179,7 @@ export function ColorRow({ value, onChange }: { value: string; onChange: (color:
 }
 
 /** Button that asks for a second tap before doing something destructive. */
-export function ConfirmButton({ label, confirmLabel = "Tap again to confirm", onConfirm, className = "", disabled }: { label: ReactNode; confirmLabel?: string; onConfirm: () => void; className?: string; disabled?: boolean }) {
+export function ConfirmButton({ label, confirmLabel = t("Tap again to confirm"),onConfirm, className = "", disabled }: { label: ReactNode; confirmLabel?: string; onConfirm: () => void; className?: string; disabled?: boolean }) {
   const [armed, setArmed] = useState(false);
   const timer = useRef(0);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -239,7 +240,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       <div role="dialog" aria-modal="true" aria-label={title} className="w-full sm:max-w-lg max-h-[92dvh] flex flex-col bg-raised rounded-t-sheet sm:rounded-sheet">
         <div className="shrink-0 flex items-center justify-between gap-2 pl-5 pr-3 pt-3 pb-2">
           <h2 className="text-title font-bold">{title}</h2>
-          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close" className="w-11 h-11 grid place-items-center rounded-full text-fg-muted hover:bg-chip-hover"><Icon name="close" /></button>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label={t("Close")}className="w-11 h-11 grid place-items-center rounded-full text-fg-muted hover:bg-chip-hover"><Icon name="close" /></button>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">{children}</div>
       </div>

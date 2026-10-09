@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useEditor } from "../editor/store";
 import { formatTime } from "./util";
+import { t } from "../i18n";
 
 const MAX_SECONDS = 10 * 60;
 const TYPES = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
@@ -29,7 +30,7 @@ export function VoiceRecorder({ onDone, className = "" }: { onDone: (file: File)
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      notify("Microphone is not available. Allow it in the browser, or add an audio file instead.", "error");
+      notify(t("Microphone is not available. Allow it in the browser, or add an audio file instead."), "error");
       return;
     }
     const mimeType = TYPES.find((type) => MediaRecorder.isTypeSupported(type));
@@ -45,7 +46,7 @@ export function VoiceRecorder({ onDone, className = "" }: { onDone: (file: File)
       if (!chunks.length) return;
       const type = recorder.mimeType || "audio/webm";
       const stamp = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16).replace("T", " ").replace(":", ".");
-      done.current(new File(chunks, `Voice ${stamp}.${type.includes("mp4") ? "m4a" : "webm"}`, { type }));
+      done.current(new File(chunks, `${t("Voice {stamp}", { stamp })}.${type.includes("mp4") ? "m4a" : "webm"}`, { type }));
     };
     const timer = window.setInterval(() => {
       const elapsed = (performance.now() - startedAt) / 1000;
@@ -68,7 +69,7 @@ export function VoiceRecorder({ onDone, className = "" }: { onDone: (file: File)
       className={`shrink-0 h-10 px-4 rounded-control text-[13px] font-semibold whitespace-nowrap flex items-center justify-center gap-2 transition-colors ${recording ? "bg-danger text-white" : "bg-chip text-fg hover:bg-chip-hover"} ${className}`}
     >
       <span className={`w-2.5 h-2.5 rounded-full ${recording ? "bg-white" : "bg-danger"}`} aria-hidden />
-      {recording ? `Stop · ${formatTime(seconds)}` : "Record voice"}
+      {recording ? t("Stop · {time}", { time: formatTime(seconds) }) : t("Record voice")}
     </button>
   );
 }

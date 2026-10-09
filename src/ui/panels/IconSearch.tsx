@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { t } from "../../i18n";
 
 // Online icon search through the public Iconify API (https://iconify.design).
 // Only permissively licensed sets are searched (MIT / Apache 2.0 / ISC), so
@@ -104,8 +105,8 @@ export function IconSearch({ onPick }: { onPick: (svg: string) => void }) {
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search more icons online"
-        aria-label="Search icons online"
+        placeholder={t("Search icons (in English)")}
+        aria-label={t("Search icons online")}
         enterKeyHint="search"
         className="w-full h-10 px-3 rounded-control bg-raised border border-line text-[16px] sm:text-[13px] text-fg placeholder:text-fg-subtle"
       />
@@ -118,16 +119,16 @@ export function IconSearch({ onPick }: { onPick: (svg: string) => void }) {
           ))}
         </div>
       )}
-      {searching && status === "loading" && <p className="text-[12px] text-fg-subtle">Searching…</p>}
+      {searching && status === "loading" && <p className="text-[12px] text-fg-subtle">{t("Searching…")}</p>}
       {searching && status === "error" && (
         <div className="space-y-1.5">
           <p className="text-[12px] text-danger">
-            Could not reach the icon service. If you are online, an ad or tracker blocker (or a browser's shield) may be stopping requests to iconify.design: allow it for this page and try again.
+            {t("Could not reach the icon service. If you are online, an ad or tracker blocker (or a browser's shield) may be stopping requests to iconify.design: allow it for this page and try again.")}
           </p>
-          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="h-9 px-3 rounded-control bg-chip hover:bg-chip-hover text-[13px] font-semibold text-fg">Try again</button>
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="h-9 px-3 rounded-control bg-chip hover:bg-chip-hover text-[13px] font-semibold text-fg">{t("Try again")}</button>
         </div>
       )}
-      {searching && status === "done" && ids.length === 0 && <p className="text-[12px] text-fg-subtle">Nothing found for “{term}”. Try a simpler English word.</p>}
+      {searching && status === "done" && ids.length === 0 && <p className="text-[12px] text-fg-subtle">{t("Nothing found for “{term}”. Try a simpler English word.", { term })}</p>}
       {searching && ids.length > 0 && status !== "error" && (
         <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-5 lg:overflow-visible">
           {ids.map((id) => (
@@ -135,7 +136,7 @@ export function IconSearch({ onPick }: { onPick: (svg: string) => void }) {
               key={id}
               type="button"
               title={id}
-              aria-label={`Add ${id.split(":")[1].replace(/-/g, " ")}`}
+              aria-label={t("Add {name}", { name: id.split(":")[1].replace(/-/g, " ") })}
               onClick={() => onPick(icons[id])}
               className="shrink-0 w-12 lg:w-auto h-12 rounded-control bg-chip hover:bg-chip-hover grid place-items-center"
             >
@@ -145,7 +146,7 @@ export function IconSearch({ onPick }: { onPick: (svg: string) => void }) {
         </div>
       )}
       <p className="text-[11px] text-fg-subtle">
-        Search uses iconify.design; what you type is sent there. Open-licensed sets only.
+        {t("Search uses iconify.design; what you type is sent there. Open-licensed sets only.")}
       </p>
     </div>
   );

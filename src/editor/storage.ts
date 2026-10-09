@@ -1,4 +1,5 @@
 import type { Asset, Scene } from "../engine/types";
+import { t } from "../i18n";
 
 // Everything the app keeps between visits goes through this interface. Today
 // the only implementation is the browser's own IndexedDB (db.ts); with accounts
@@ -74,7 +75,7 @@ export function upgradeProject(raw: unknown): ProjectRecord | null {
   // Format 0 (before versioning): no owner, no creation time
   return {
     id: r.id,
-    name: typeof r.name === "string" ? r.name : "Untitled",
+    name: typeof r.name === "string" ? r.name : t("Untitled"),
     ownerId: typeof r.ownerId === "string" ? r.ownerId : LOCAL_USER,
     createdAt: typeof r.createdAt === "number" ? r.createdAt : updatedAt,
     updatedAt,

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { localStore } from "./db";
 import { remoteStore, supabase } from "./remote";
 import { LOCAL_USER, newId, type Storage, type User } from "./storage";
+import { t } from "../i18n";
 
 // Who is using the app, and therefore where their work is kept: a guest's
 // projects stay in this browser, a signed-in user's are in their account.
@@ -33,7 +34,7 @@ export const useSession = create<Session>((set, get) => ({
   localProjects: 0,
 
   sendLink: async (email) => {
-    if (!supabase) return "Accounts are not set up in this build.";
+    if (!supabase) return t("Accounts are not set up in this build.");
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: { emailRedirectTo: window.location.origin + import.meta.env.BASE_URL },

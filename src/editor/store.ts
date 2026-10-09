@@ -7,6 +7,7 @@ import { ASPECTS, STAGE_W, type Asset, type El, type Scene, type Stage, type Vec
 import { parseSaved, type SavedTemplate } from "../engine/template";
 import { currentUser, storage, useSession } from "./session";
 import { PROJECT_FORMAT, newId, type ProjectMeta } from "./storage";
+import { t } from "../i18n";
 
 export type Tool = "add" | "style" | "animate" | "timing" | "sketch" | "layers" | "canvas";
 /** What a press on the canvas does. */
@@ -290,7 +291,7 @@ export const useEditor = create<State>((set, get) => {
 
     loadProjects: async () => {
       try { set({ projects: await storage.listProjects() }); }
-      catch (error) { console.warn(error); get().notify("Could not load your projects. Check the connection.", "error"); }
+      catch (error) { console.warn(error); get().notify(t("Could not load your projects. Check the connection."), "error"); }
     },
 
     newProject: async (photo, aspect = "9:16") => {
@@ -299,28 +300,28 @@ export const useEditor = create<State>((set, get) => {
       let image: HTMLImageElement | null = null;
       if (photo) {
         image = await loadImage(photo);
-        if (!image) { get().notify("Could not read that image.", "error"); return; }
+        if (!image) { get().notify(t("Could not read that image."), "error"); return; }
         scene = withStageHeight(scene, (STAGE_W * image.naturalHeight) / image.naturalWidth);
-        try { await storage.putFile(id, "image", photo); } catch { get().notify("Could not store the photo on this device.", "error"); return; }
+        try { await storage.putFile(id, "image", photo); } catch { get().notify(t("Could not store the photo on this device."), "error"); return; }
       }
       stopAudio();
       narrationData.buffer = null;
       set({ image, narration: null });
       const count = get().projects.length + 1;
-      openEditor(id, photo?.name.replace(/\.[^.]+$/, "").slice(0, 40) || `Project ${count}`, scene, {});
+      openEditor(id, photo?.name.replace(/\.[^.]+$/, "").slice(0, 40) || t("Project {n}", { n: count }), scene, {});
       await saveNow();
     },
 
     openProject: async (id) => {
       const record = await storage.getProject(id).catch(() => null);
       const scene = record && normalizeScene(record.scene);
-      if (!record || !scene) { get().notify("That project could not be opened.", "error"); return; }
+      if (!record || !scene) { get().notify(t("That project could not be opened."), "error"); return; }
       const photo = await storage.getFile(id, "image");
       const image = photo ? await loadImage(photo) : null;
       const audio = await storage.getFile(id, "audio");
       stopAudio();
       narrationData.buffer = audio ? await decodeAudio(audio) : null;
-      const narration = audio && narrationData.buffer ? { name: record.narrationName || "Narration", url: URL.createObjectURL(audio), duration: narrationData.buffer.duration } : null;
+      const narration = audio && narrationData.buffer ? { name: record.narrationName || t("Narration"), url: URL.createObjectURL(audio), duration: narrationData.buffer.duration } : null;
       set({ image, narration });
       openEditor(id, record.name, scene, record.assets || {});
     },
@@ -332,7 +333,7 @@ export const useEditor = create<State>((set, get) => {
     },
 
     renameProject: (name) => {
-      set({ projectName: name.slice(0, 60) || "Untitled" });
+      set({ projectName: name.slice(0, 60) || t("Untitled") });
       saveSoon();
     },
 
@@ -346,7 +347,7 @@ export const useEditor = create<State>((set, get) => {
         await get().loadProjects();
       } catch (error) {
         console.warn(error);
-        get().notify("Could not rename that project.", "error");
+        get().notify(t("Could not rename that project."), "error");
       }
     },
 
@@ -360,16 +361,16 @@ export const useEditor = create<State>((set, get) => {
           if (file) await storage.putFile(copy, kind, file);
         }
         const now = Date.now();
-        await storage.putProject({ ...record, id: copy, name: `${record.name} copy`.slice(0, 60), ownerId: currentUser().id, createdAt: now, updatedAt: now });
+        await storage.putProject({ ...record, id: copy, name: t("{name} copy", { name: record.name }).slice(0, 60), ownerId: currentUser().id, createdAt: now, updatedAt: now });
         await get().loadProjects();
       } catch (error) {
         console.warn(error);
-        get().notify("Could not duplicate that project.", "error");
+        get().notify(t("Could not duplicate that project."), "error");
       }
     },
 
     deleteProject: async (id) => {
-      try { await storage.removeProject(id); } catch { get().notify("Could not delete that project.", "error"); return; }
+      try { await storage.removeProject(id); } catch { get().notify(t("Could not delete that project."), "error"); return; }
       set((state) => ({ projects: state.projects.filter((p) => p.id !== id) }));
     },
 
@@ -413,7 +414,7 @@ export const useEditor = create<State>((set, get) => {
       const { preview, playing, time } = get();
       if (preview && !playing && time > 0.05 && !el.time) {
         el = { ...el, time: { start: Math.round(time * 100) / 100, end: null, fade: 0.2 } };
-        get().notify(`Appears at ${time.toFixed(1)}s. Change it in Timing.`);
+        get().notify(t("Appears at {time}s. Change it in Timing.", { time: time.toFixed(1) }));
       }
       set((state) => ({ scene: { ...state.scene, elements: [...state.scene.elements, el], nextId: state.scene.nextId + 1 }, selectedId: el.id, groupSel: null }));
       get().commit();
@@ -494,18 +495,18 @@ export const useEditor = create<State>((set, get) => {
       const used = new Set(elements.map((el) => (el.type === "image" ? el.asset : "")));
       // Validate exactly as it will be validated when loaded back
       const saved = parseSaved({
-        v: 1, kind: "snapshot", id: newId(), name: name.trim().slice(0, 40) || "My template",
+        v: 1, kind: "snapshot", id: newId(), name: name.trim().slice(0, 40) || t("My template"),
         w: scene.stage.w, h: scene.stage.h, elements,
         assets: Object.fromEntries(Object.entries(assets).filter(([key]) => used.has(key))),
       });
-      if (!saved) { get().notify("Nothing to save as a template.", "error"); return; }
-      try { await storage.putTemplate(saved.id, saved); } catch { get().notify("Could not save the template on this device.", "error"); return; }
+      if (!saved) { get().notify(t("Nothing to save as a template."), "error"); return; }
+      try { await storage.putTemplate(saved.id, saved); } catch { get().notify(t("Could not save the template on this device."), "error"); return; }
       set({ savedTemplates: [...savedTemplates, saved] });
-      get().notify(`Saved “${saved.name}” to Templates.`);
+      get().notify(t("Saved “{name}” to Templates.", { name: saved.name }));
     },
 
     deleteTemplate: async (id) => {
-      try { await storage.removeTemplate(id); } catch { get().notify("Could not delete that template.", "error"); return; }
+      try { await storage.removeTemplate(id); } catch { get().notify(t("Could not delete that template."), "error"); return; }
       set({ savedTemplates: get().savedTemplates.filter((t) => t.id !== id) });
     },
 
@@ -552,7 +553,7 @@ export const useEditor = create<State>((set, get) => {
       if (!source) return;
       const copy = JSON.parse(JSON.stringify(source)) as El;
       copy.id = `e${scene.nextId}`;
-      copy.name = `${source.name} copy`.slice(0, 40);
+      copy.name = t("{name} copy", { name: source.name }).slice(0, 40);
       const shift = (p: Vec) => ({ x: p.x + 30, y: p.y + 30 });
       if (copy.type === "line") {
         // Start from where the ends actually are: an attached end follows its target
@@ -607,8 +608,8 @@ export const useEditor = create<State>((set, get) => {
         set({ image: null, scene: scene.stage.aspect === "image" ? { ...scene, stage: { ...scene.stage, aspect: "9:16" } } : scene });
       } else {
         const image = await loadImage(file);
-        if (!image) { get().notify("Could not read that image.", "error"); return; }
-        try { await storage.putFile(projectId, "image", file); } catch { get().notify("Could not store the photo on this device.", "error"); return; }
+        if (!image) { get().notify(t("Could not read that image."), "error"); return; }
+        try { await storage.putFile(projectId, "image", file); } catch { get().notify(t("Could not store the photo on this device."), "error"); return; }
         set({ image, scene: scene.stage.aspect === "image" ? withStageHeight(scene, (STAGE_W * image.naturalHeight) / image.naturalWidth) : scene });
       }
       // The photo itself is not in the undo history, so stepping back across this
@@ -628,9 +629,9 @@ export const useEditor = create<State>((set, get) => {
         set({ narration: null });
       } else {
         const buffer = await decodeAudio(file);
-        if (!buffer) { get().notify("Could not read that audio file.", "error"); return; }
+        if (!buffer) { get().notify(t("Could not read that audio file."), "error"); return; }
         narrationData.buffer = buffer;
-        try { await storage.putFile(projectId, "audio", file); } catch { get().notify("Could not store the audio on this device.", "error"); return; }
+        try { await storage.putFile(projectId, "audio", file); } catch { get().notify(t("Could not store the audio on this device."), "error"); return; }
         set({ narration: { name: file.name, url: URL.createObjectURL(file), duration: buffer.duration } });
       }
       saveSoon();

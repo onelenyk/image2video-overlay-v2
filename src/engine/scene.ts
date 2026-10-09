@@ -1,5 +1,6 @@
 import { ANIMATIONS, loopLength } from "./animations";
 import { ASPECTS, STAGE_W, type Anim, type Asset, type El, type ElType, type Label, type Scene, type SketchTiming, type Vec } from "./types";
+import { m, t, type Msg } from "../i18n";
 
 export const defaultAnim = (): Anim => ({ enabled: false, type: "pulse", duration: 1.5, delay: 0, intensity: 1 });
 const label = (text: string, size = 37): Label => ({ text, show: true, color: "#ffffff", size });
@@ -15,9 +16,9 @@ export function newScene(heightRatio: number = ASPECTS["9:16"], aspect: Scene["s
 
 export type Preset = "rect" | "ellipse" | "text" | "point" | "line" | "arrow";
 
-const PRESET_NAMES: Record<Preset | "polygon" | "image" | "path" | "sketch", string> = {
-  rect: "Zone", ellipse: "Ellipse", text: "Text", point: "Point", line: "Line", arrow: "Arrow",
-  polygon: "Polygon", image: "Image", path: "Drawing", sketch: "Stroke",
+const PRESET_NAMES: Record<Preset | "polygon" | "image" | "path" | "sketch", Msg> = {
+  rect: m("Zone"), ellipse: m("Ellipse"), text: m("Text"), point: m("Point"), line: m("Line"), arrow: m("Arrow"),
+  polygon: m("Polygon"), image: m("Image"), path: m("Drawing"), sketch: m("Stroke"),
 };
 
 function uniqueName(scene: Scene, base: string): string {
@@ -29,7 +30,7 @@ function uniqueName(scene: Scene, base: string): string {
 
 /** Common fields for a new element; the caller bumps scene.nextId. */
 function base(scene: Scene, kind: keyof typeof PRESET_NAMES, color = "#ef4444") {
-  return { id: `e${scene.nextId}`, name: uniqueName(scene, PRESET_NAMES[kind]), color, opacity: 1, visible: true, anim: defaultAnim() };
+  return { id: `e${scene.nextId}`, name: uniqueName(scene, t(PRESET_NAMES[kind])), color, opacity: 1, visible: true, anim: defaultAnim() };
 }
 
 /** A ready-made element placed in the middle of the stage. */
@@ -44,7 +45,7 @@ export function makePreset(scene: Scene, kind: Preset): El {
       return { ...b, type: "box", ...at(260, 260), w: 260, h: 260, rot: 0, opacity: 0.4, shape: kind === "ellipse" ? "ellipse" : "rect", radius: 0, borderWidth: 5, dashed: false, label: label(b.name) };
     }
     case "text":
-      return { ...base(scene, kind), type: "box", ...at(360, 110), w: 360, h: 110, rot: 0, opacity: 0, shape: "rect", radius: 0, borderWidth: 0, dashed: false, label: label("Text", 64) };
+      return { ...base(scene, kind), type: "box", ...at(360, 110), w: 360, h: 110, rot: 0, opacity: 0, shape: "rect", radius: 0, borderWidth: 0, dashed: false, label: label(t("Text"), 64) };
     case "point": {
       const b = base(scene, kind, "#3b82f6");
       return { ...b, type: "point", x: W / 2 + step, y: H / 2 + step, r: 22, label: label(b.name, 28) };
@@ -161,7 +162,7 @@ export function normalizeScene(raw: unknown): Scene | null {
     nextId: Math.max(num(data.nextId, 1), maxId + 1),
     groups: Object.fromEntries(
       [...new Set(elements.map((el) => el.group).filter((g): g is string => typeof g === "string"))]
-        .map((id) => [id, { name: String(data.groups?.[id]?.name ?? "Group").slice(0, 40) }])
+        .map((id) => [id, { name: String(data.groups?.[id]?.name ?? t("Group")).slice(0, 40) }])
     ),
   };
 }

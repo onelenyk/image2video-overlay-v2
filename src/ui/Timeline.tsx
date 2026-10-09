@@ -3,6 +3,7 @@ import { drawScene, preloadAssets, prescale } from "../engine/renderer";
 import { videoLength } from "../engine/scene";
 import { useEditor } from "../editor/store";
 import { Tracks } from "./Tracks";
+import { t } from "../i18n";
 
 const TILE_HEIGHT = window.matchMedia("(min-width: 1024px)").matches ? 60 : 44;
 
@@ -63,8 +64,8 @@ export function Timeline() {
   const step = (frames: number) => seek((preview ? shown : 0) + frames / fps);
 
   return (
-    <section aria-label="Timeline" className="relative px-3 pt-1 pb-2 lg:pt-3">
-      <span className="hidden lg:block absolute left-3 w-[104px] text-right text-[11px] text-fg-subtle" style={{ lineHeight: `${TILE_HEIGHT}px` }} aria-hidden>Frames</span>
+    <section aria-label={t("Timeline")} className="relative px-3 pt-1 pb-2 lg:pt-3">
+      <span className="hidden lg:block absolute left-3 w-[104px] text-right text-[11px] text-fg-subtle" style={{ lineHeight: `${TILE_HEIGHT}px` }} aria-hidden>{t("Frames")}</span>
       <div
         ref={stripRef}
         className={`relative flex rounded-md overflow-hidden ring-2 ring-brand select-none lg:ml-[116px] ${sketching ? "opacity-60" : "cursor-ew-resize"}`}
@@ -72,7 +73,7 @@ export function Timeline() {
         onPointerDown={(e) => { if (!sketching) { e.currentTarget.setPointerCapture(e.pointerId); scrubTo(e.clientX); } }}
         onPointerMove={(e) => { if (!sketching && e.currentTarget.hasPointerCapture(e.pointerId)) scrubTo(e.clientX); }}
         role="slider"
-        aria-label="Video timeline"
+        aria-label={t("Video timeline")}
         aria-valuemin={0}
         aria-valuemax={duration}
         aria-valuenow={shown}

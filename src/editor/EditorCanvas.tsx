@@ -4,6 +4,7 @@ import { drawScene, preloadAssets, prescale } from "../engine/renderer";
 import { makePolygon } from "../engine/scene";
 import type { Anchor, El, LineEl, PolygonEl, Scene, Vec } from "../engine/types";
 import { sketchLook, useEditor, type Mode } from "./store";
+import { t } from "../i18n";
 
 // The stage: draws the scene with the shared renderer and turns pointer input
 // (mouse, pen or finger) into edits. Selection handles are painted on top and
@@ -752,10 +753,10 @@ export function EditorCanvas() {
       />
       {/* Zoom: pinch or Ctrl + wheel does the same */}
       {/* On a phone you pinch, so only the way back to 100% is shown, and only when zoomed in */}
-      <div className={`absolute right-2 bottom-2 items-center rounded-full bg-raised text-fg ${zoom > 1 ? "flex" : "hidden lg:flex"}`} role="group" aria-label="Zoom">
-        <button type="button" onClick={() => viewRef.current?.zoomBy(1 / 1.5)} disabled={zoom <= 1} aria-label="Zoom out" className="hidden lg:grid w-9 h-9 place-items-center text-[18px] leading-none disabled:text-fg-subtle/50">−</button>
-        <button type="button" onClick={() => viewRef.current?.reset()} title="Back to 100%" className={`h-9 min-w-12 px-2 text-[12px] font-mono tabular-nums ${zoom > 1 ? "text-brand" : "text-fg-muted"}`}>{Math.round(zoom * 100)}%</button>
-        <button type="button" onClick={() => viewRef.current?.zoomBy(1.5)} disabled={zoom >= MAX_ZOOM} aria-label="Zoom in" className="hidden lg:grid w-9 h-9 place-items-center text-[18px] leading-none disabled:text-fg-subtle/50">+</button>
+      <div className={`absolute right-2 bottom-2 items-center rounded-full bg-raised text-fg ${zoom > 1 ? "flex" : "hidden lg:flex"}`} role="group" aria-label={t("Zoom")}>
+        <button type="button" onClick={() => viewRef.current?.zoomBy(1 / 1.5)} disabled={zoom <= 1} aria-label={t("Zoom out")} className="hidden lg:grid w-9 h-9 place-items-center text-[18px] leading-none disabled:text-fg-subtle/50">−</button>
+        <button type="button" onClick={() => viewRef.current?.reset()} title={t("Back to 100%")} className={`h-9 min-w-12 px-2 text-[12px] font-mono tabular-nums ${zoom > 1 ? "text-brand" : "text-fg-muted"}`}>{Math.round(zoom * 100)}%</button>
+        <button type="button" onClick={() => viewRef.current?.zoomBy(1.5)} disabled={zoom >= MAX_ZOOM} aria-label={t("Zoom in")}className="hidden lg:grid w-9 h-9 place-items-center text-[18px] leading-none disabled:text-fg-subtle/50">+</button>
       </div>
     </div>
   );

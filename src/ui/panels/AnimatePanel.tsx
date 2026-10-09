@@ -3,6 +3,7 @@ import type { AnimType, El } from "../../engine/types";
 import { selectedElement, useEditor } from "../../editor/store";
 import { MiniPreview } from "../MiniPreview";
 import { Button, ColorRow, Slider, Toggle } from "../kit";
+import { t, type Msg, secs } from "../../i18n";
 
 const GROUPS = ["Motion", "Attention", "Reveal", "Path", "Effects"] as const;
 
@@ -16,7 +17,7 @@ function AnimTile({ label, on, onClick, sample }: { label: string; on: boolean; 
       className={`shrink-0 w-[84px] lg:w-auto rounded-control overflow-hidden text-left transition-colors ${on ? "bg-chip-active ring-2 ring-brand" : "bg-chip hover:bg-chip-hover"}`}
     >
       <MiniPreview el={sample} animate={sample.anim.enabled} className="block w-full h-12" />
-      <span className={`block px-2 pb-1.5 text-[12px] font-medium truncate ${on ? "text-brand" : "text-fg-muted"}`}>{label}</span>
+      <span className={`block px-2 pb-1.5 text-[12px] font-medium truncate ${on ? "text-brand" : "text-fg-muted"}`}>{t(label as Msg)}</span>
     </button>
   );
 }
@@ -25,7 +26,7 @@ export function AnimatePanel() {
   const el = useEditor(selectedElement);
   const { patch, commit, play, scene } = useEditor();
 
-  if (!el) return <p className="text-[13px] text-fg-muted py-3">Tap an overlay on the photo to animate it.</p>;
+  if (!el) return <p className="text-[13px] text-fg-muted py-3">{t("Tap an overlay on the photo to animate it.")}</p>;
 
   const options = animationsFor(el.type);
   // The sample moves like the real thing would: a stroke for path animations, a shape otherwise
@@ -60,18 +61,18 @@ export function AnimatePanel() {
     <div className="space-y-2">
       {el.anim.enabled && (
         <div>
-          <Slider label="Speed" value={el.anim.duration} min={0.3} max={8} step={0.1} onChange={(duration) => setAnim({ duration })} format={(v) => `${v.toFixed(1)}s`} />
-          <Slider label="Delay" value={el.anim.delay} min={0} max={5} step={0.1} onChange={(delay) => setAnim({ delay })} format={(v) => `${v.toFixed(1)}s`} />
-          <Slider label="Strength" value={el.anim.intensity} min={0.2} max={2.5} step={0.1} onChange={(intensity) => setAnim({ intensity })} format={(v) => `${Math.round(v * 100)}%`} />
+          <Slider label={t("Speed")} value={el.anim.duration} min={0.3} max={8} step={0.1} onChange={(duration) => setAnim({ duration })} format={(v) => `${secs(v, 1)}`} />
+          <Slider label={t("Delay")} value={el.anim.delay} min={0} max={5} step={0.1} onChange={(delay) => setAnim({ delay })} format={(v) => `${secs(v, 1)}`} />
+          <Slider label={t("Strength")} value={el.anim.intensity} min={0.2} max={2.5} step={0.1} onChange={(intensity) => setAnim({ intensity })} format={(v) => `${Math.round(v * 100)}%`} />
           {isTrain && (
             <>
-              <Slider label="Length" value={train.length ?? 0.18} min={0.04} max={0.6} step={0.01} onChange={(length) => setAnim({ train: { ...train, length } })} format={(v) => `${Math.round(v * 100)}%`} />
-              <Slider label="Glow" value={train.glow ?? 1} min={0} max={3} step={0.1} onChange={(glow) => setAnim({ train: { ...train, glow } })} format={(v) => `${Math.round(v * 100)}%`} />
-              <Toggle label="Light in its own color" checked={!!train.color} onChange={(on) => { setAnim({ train: { ...train, color: on ? "#ffffff" : undefined } }); commit(); }} />
+              <Slider label={t("Length")} value={train.length ?? 0.18} min={0.04} max={0.6} step={0.01} onChange={(length) => setAnim({ train: { ...train, length } })} format={(v) => `${Math.round(v * 100)}%`} />
+              <Slider label={t("Glow")} value={train.glow ?? 1} min={0} max={3} step={0.1} onChange={(glow) => setAnim({ train: { ...train, glow } })} format={(v) => `${Math.round(v * 100)}%`} />
+              <Toggle label={t("Light in its own color")} checked={!!train.color} onChange={(on) => { setAnim({ train: { ...train, color: on ? "#ffffff" : undefined } }); commit(); }} />
               {train.color && <ColorRow value={train.color} onChange={(color) => setAnim({ train: { ...train, color } })} />}
             </>
           )}
-          {scene.elements.length > 1 && <Button onClick={applyToAll} className="w-full">Apply to all overlays</Button>}
+          {scene.elements.length > 1 && <Button onClick={applyToAll} className="w-full">{t("Apply to all overlays")}</Button>}
         </div>
       )}
       {/* Phone: one scrolling row of live tiles */}
@@ -87,7 +88,7 @@ export function AnimatePanel() {
           if (!items.length) return null;
           return (
             <div key={group}>
-              <h4 className="mb-1.5 text-[12px] font-medium text-fg-muted">{group}</h4>
+              <h4 className="mb-1.5 text-[12px] font-medium text-fg-muted">{t(group as Msg)}</h4>
               <div className="grid grid-cols-3 gap-1.5">
                 {index === 0 && <AnimTile label="None" on={!el.anim.enabled} onClick={() => choose(null)} sample={sample(null)} />}
                 {items.map((type) => <AnimTile key={type} label={ANIMATIONS[type].label} on={el.anim.enabled && el.anim.type === type} onClick={() => choose(type)} sample={sample(type)} />)}

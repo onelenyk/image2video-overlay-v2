@@ -190,7 +190,7 @@ function plate(name: string, text: string, cx: number, cy: number, tone: Tone, s
 
 const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 /** What a part is called in the Overlays list when the template does not name it. */
-function partName(part: Part): string {
+export function partName(part: Part): string {
   switch (part.kind) {
     case "pill": case "text": return part.text || "Text";
     case "badge": return `Badge ${part.text}`;

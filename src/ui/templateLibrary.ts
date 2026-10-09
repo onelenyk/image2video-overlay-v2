@@ -1,4 +1,5 @@
 import { parseTemplate, type TemplateSpec } from "../engine/template";
+import { localizeTemplate } from "../i18n/templates";
 
 // The bundled templates. They are plain data in the same format a template
 // from anywhere else would use, and they go through the same validation.
@@ -315,4 +316,6 @@ const RAW: unknown[] = [
 export const PREVIEW_W = 560, PREVIEW_H = 420;
 
 export const LIBRARY: TemplateSpec[] = RAW.map(parseTemplate).filter((t): t is TemplateSpec => t !== null);
+/** The bundled templates in the current language. */
+export const library = (): TemplateSpec[] => LIBRARY.map(localizeTemplate);
 if (import.meta.env.DEV && LIBRARY.length !== RAW.length) console.warn(`Template library: ${RAW.length - LIBRARY.length} bundled template(s) failed validation`);

@@ -1,11 +1,18 @@
 import { useEditor } from "./editor/store";
+import { useLang } from "./i18n";
 import { Account } from "./ui/Account";
 import { Editor } from "./ui/Editor";
 import { Home } from "./ui/Home";
 import { SignIn } from "./ui/SignIn";
 import { Welcome } from "./ui/Welcome";
 
+/** Re-mounted whenever the language changes, so every text is read again. */
 function App() {
+  const lang = useLang((s) => s.lang);
+  return <Screens key={lang} />;
+}
+
+function Screens() {
   const screen = useEditor((s) => s.screen);
   const toast = useEditor((s) => s.toast);
   if (screen === "editor") return <Editor />;

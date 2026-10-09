@@ -3,6 +3,7 @@ import { drawScene } from "../engine/renderer";
 import { videoLength } from "../engine/scene";
 import { useEditor } from "../editor/store";
 import { IconButton } from "./kit";
+import { t } from "../i18n";
 
 /** The video on a black screen with nothing around it: what the export will look like. Tap to pause. */
 export function FullPreview({ onClose }: { onClose: () => void }) {
@@ -58,9 +59,9 @@ export function FullPreview({ onClose }: { onClose: () => void }) {
   }, []);
 
   return (
-    <div ref={hostRef} role="dialog" aria-modal="true" aria-label="Full-screen preview" className="fixed inset-0 z-50 bg-black grid place-items-center">
+    <div ref={hostRef} role="dialog" aria-modal="true" aria-label={t("Full-screen preview")} className="fixed inset-0 z-50 bg-black grid place-items-center">
       <canvas ref={canvasRef} onClick={toggle} className="block" />
-      <IconButton icon="close" label="Close preview" onClick={onClose} className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] bg-black/60 !rounded-full" />
+      <IconButton icon="close" label={t("Close preview")}onClick={onClose} className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] bg-black/60 !rounded-full" />
       <div className="absolute inset-x-0 bottom-0 h-0.5 bg-white/15" aria-hidden>
         <div ref={barRef} className="h-full bg-brand" style={{ width: 0 }} />
       </div>

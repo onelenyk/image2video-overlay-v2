@@ -1,6 +1,7 @@
 import { ArrayBufferTarget, Muxer } from "mp4-muxer";
 import { drawScene, preloadAssets, prescale, type RenderEnv } from "./renderer";
 import type { Asset, Scene, Stage } from "./types";
+import { t } from "../i18n";
 
 // Video export. Frames are rendered one by one at exact timestamps and encoded
 // with WebCodecs, so the result is frame-perfect and usually much faster than
@@ -154,10 +155,10 @@ async function encodeOffline(o: ExportOptions, video: VideoEncoderConfig): Promi
 
 // Real-time fallback for browsers without WebCodecs (no soundtrack).
 async function encodeRealtime(o: ExportOptions): Promise<ExportResult> {
-  if (typeof MediaRecorder === "undefined") throw new Error("This browser cannot export video.");
+  if (typeof MediaRecorder === "undefined") throw new Error(t("This browser cannot export video."));
   const candidates: [string, "mp4" | "webm"][] = [["video/mp4;codecs=avc1", "mp4"], ["video/mp4", "mp4"], ["video/webm;codecs=vp9", "webm"], ["video/webm", "webm"]];
   const picked = candidates.find(([mime]) => MediaRecorder.isTypeSupported(mime));
-  if (!picked) throw new Error("This browser cannot export video.");
+  if (!picked) throw new Error(t("This browser cannot export video."));
   const canvas = document.createElement("canvas");
   canvas.width = o.width;
   canvas.height = o.height;

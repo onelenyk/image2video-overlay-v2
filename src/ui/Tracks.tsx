@@ -1,8 +1,9 @@
+import { animName } from "./util";
 import { useState } from "react";
-import { ANIMATIONS } from "../engine/animations";
 import { hexToRgb } from "../engine/renderer";
 import type { El, PathEl } from "../engine/types";
 import { useEditor } from "../editor/store";
+import { t, secs } from "../i18n";
 
 // One row per overlay under the filmstrip: a bar shows when the element is on
 // screen. Drag the bar to move it in time, drag its ends to change when it
@@ -49,7 +50,7 @@ function Ruler({ duration }: { duration: number }) {
     <div className="relative h-4 text-[10px] font-mono text-fg-subtle select-none" aria-hidden>
       {marks.map((t) => (
         <span key={t} className="absolute top-0 bottom-0 border-l border-line pl-1" style={{ left: `${(t / duration) * 100}%` }}>
-          {Number.isInteger(t) ? `${t}s` : t.toFixed(1)}
+          {Number.isInteger(t) ? secs(t, 0) : t.toFixed(1)}
         </span>
       ))}
     </div>
@@ -100,17 +101,19 @@ function ElementRow({ el, duration, width }: { el: El; duration: number; width: 
         className={`absolute top-0.5 bottom-0.5 rounded overflow-hidden cursor-grab active:cursor-grabbing ${selected ? "ring-2 ring-brand" : "ring-1 ring-line"} ${el.visible ? "" : "opacity-40"}`}
         style={{ left: `${left * 100}%`, width: `max(14px, ${(right - left) * 100}%)`, background: tone, touchAction: "none" }}
         onPointerDown={(e) => drag(e, "body")}
-        title={`${el.name}: ${start.toFixed(1)}s – ${el.time?.end == null ? "end" : end.toFixed(1) + "s"}`}
+        title={el.time?.end == null
+          ? t("{name}: {start}s – end", { name: el.name, start: start.toFixed(1) })
+          : t("{name}: {start}s – {end}s", { name: el.name, start: start.toFixed(1), end: end.toFixed(1) })}
       >
         <div className={`absolute inset-0 ${el.time ? "bg-black/25" : "bg-black/55"}`} />
         {cycles.map((p, i) => <span key={i} className="absolute top-0 bottom-0 w-px bg-white/50" style={{ left: `${p * 100}%` }} />)}
         <span className="absolute inset-y-0 left-3 right-3 flex items-center gap-1.5 text-[11px] font-semibold text-white whitespace-nowrap overflow-hidden pointer-events-none [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
           <span className="truncate lg:hidden">{el.name}</span>
-          {el.anim.enabled && <span className="shrink-0 px-1 rounded bg-black/50 text-[10px] uppercase tracking-wide">{ANIMATIONS[el.anim.type].label}</span>}
-          {!el.time && <span className="shrink-0 text-[10px] font-normal text-white/70">whole video</span>}
+          {el.anim.enabled && <span className="shrink-0 px-1 rounded bg-black/50 text-[10px] uppercase tracking-wide">{animName(el.anim.type)}</span>}
+          {!el.time && <span className="shrink-0 text-[10px] font-normal text-white/70">{t("whole video")}</span>}
         </span>
-        <span className="absolute inset-y-0 left-0 w-2.5 bg-white/70 cursor-ew-resize" onPointerDown={(e) => drag(e, "start")} aria-label={`Start of ${el.name}`} />
-        <span className="absolute inset-y-0 right-0 w-2.5 bg-white/70 cursor-ew-resize" onPointerDown={(e) => drag(e, "end")} aria-label={`End of ${el.name}`} />
+        <span className="absolute inset-y-0 left-0 w-2.5 bg-white/70 cursor-ew-resize" onPointerDown={(e) => drag(e, "start")} aria-label={t("Start of {name}", { name: el.name })} />
+        <span className="absolute inset-y-0 right-0 w-2.5 bg-white/70 cursor-ew-resize" onPointerDown={(e) => drag(e, "end")} aria-label={t("End of {name}", { name: el.name })} />
       </div>
     </div>
   );
@@ -121,8 +124,8 @@ function SketchRow({ strokes, duration, width }: { strokes: Sketched[]; duration
   const { patch, commit, select } = useEditor();
   return (
     <div className="relative h-7">
-      <RowLabel>Sketch</RowLabel>
-      <span className="lg:hidden absolute inset-y-0 left-1 flex items-center text-[10px] uppercase tracking-wide text-fg-subtle pointer-events-none">Sketch</span>
+      <RowLabel>{t("Sketch")}</RowLabel>
+      <span className="lg:hidden absolute inset-y-0 left-1 flex items-center text-[10px] uppercase tracking-wide text-fg-subtle pointer-events-none">{t("Sketch")}</span>
       {strokes.map((el) => {
         const drawn = el.sketch.times[el.sketch.times.length - 1] ?? 0;
         const hold = el.sketch.hold === null ? duration - el.sketch.start - drawn : el.sketch.hold + el.sketch.fade;
@@ -132,7 +135,7 @@ function SketchRow({ strokes, duration, width }: { strokes: Sketched[]; duration
             key={el.id}
             className={`absolute top-1 bottom-1 rounded cursor-grab active:cursor-grabbing ${el.id === selectedId ? "ring-2 ring-brand z-10" : ""}`}
             style={{ left: pct(el.sketch.start), width: `max(8px, ${pct(drawn + Math.max(0, hold))})`, background: `${el.color}55`, touchAction: "none" }}
-            title={`${el.name}: drawn ${el.sketch.start.toFixed(1)}s – ${(el.sketch.start + drawn).toFixed(1)}s`}
+            title={t("{name}: drawn {start}s – {end}s", { name: el.name, start: el.sketch.start.toFixed(1), end: (el.sketch.start + drawn).toFixed(1) })}
             onPointerDown={(e) => {
               select(el.id);
               const origin = el.sketch.start;
@@ -169,7 +172,7 @@ export function Tracks({ duration, width, playhead }: { duration: number; width:
   return (
     <div className="mt-1">
       <button type="button" onClick={() => setOpen((v) => !v)} className="h-9 lg:h-7 pr-3 lg:ml-[116px] text-[11px] font-semibold uppercase tracking-widest text-fg-subtle hover:text-fg-muted" aria-expanded={open}>
-        {open ? "▾" : "▸"} Tracks · {rows}
+        {open ? "▾" : "▸"} {t("Tracks · {n}", { n: rows })}
       </button>
       {open && (
         // A fixed height: new tracks fill it downwards (then scroll) instead of pushing the photo smaller
@@ -179,7 +182,7 @@ export function Tracks({ duration, width, playhead }: { duration: number; width:
           {groupIds.map((id) => (
             <div key={id} className={`my-0.5 rounded ${groupSel === id ? "bg-brand/10" : "bg-white/[0.04]"}`}>
               <button type="button" onClick={() => selectGroup(id)} className={`block w-full h-5 px-1.5 text-left text-[10px] font-semibold uppercase tracking-wide truncate ${groupSel === id ? "text-brand" : "text-fg-subtle hover:text-fg-muted"}`}>
-                {groups?.[id]?.name ?? "Group"}
+                {groups?.[id]?.name ?? t("Group")}
               </button>
               {others.filter((el) => el.group === id).map((el) => <ElementRow key={el.id} el={el} duration={duration} width={width} />)}
             </div>
@@ -189,11 +192,11 @@ export function Tracks({ duration, width, playhead }: { duration: number; width:
           {strokes.length > 0 && <SketchRow strokes={strokes} duration={duration} width={width} />}
           {drawn.map((el) => <ElementRow key={el.id} el={el} duration={duration} width={width} />)}
           {narration && (
-            <div className="relative h-7" title={`${narration.name}: ${narration.duration.toFixed(1)}s`}>
-              <RowLabel>Voice</RowLabel>
+            <div className="relative h-7" title={`${narration.name}: ${secs(narration.duration, 1)}`}>
+              <RowLabel>{t("Voice")}</RowLabel>
               <div className="absolute inset-x-0 top-0.5 bottom-0.5 rounded bg-chip/60" />
               <div className="absolute top-1.5 bottom-1.5 left-0 rounded bg-sky/70" style={{ width: `${Math.min(1, narration.duration / duration) * 100}%` }}>
-                <span className="lg:hidden absolute inset-y-0 left-2 flex items-center text-[10px] font-semibold text-white">Voice</span>
+                <span className="lg:hidden absolute inset-y-0 left-2 flex items-center text-[10px] font-semibold text-white">{t("Voice")}</span>
               </div>
             </div>
           )}

@@ -1,4 +1,6 @@
 // Built-in markers, added to the canvas as tintable SVG images.
+import { m, type Msg } from "../i18n";
+
 const PATHS: Record<string, string> = {
   Down: "M11 5V14L7.5 10.5L6 12L12 18L18 12L16.5 10.5L13 14V5H11Z",
   Up: "M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z",
@@ -18,8 +20,16 @@ const PATHS: Record<string, string> = {
   Dot: "M12 4a8 8 0 100 16 8 8 0 000-16z",
 };
 
+// Names shown on the marker tiles
+const LABELS: Record<string, Msg> = {
+  Down: m("Down"), Up: m("Up"), Right: m("Right"), Left: m("Left"), Double: m("Double"), Pin: m("Pin"), Star: m("Star"),
+  Check: m("Check"), Cross: m("Cross"), Warning: m("Warning"), Info: m("Info"), Home: m("Home"), Flag: m("Flag"),
+  Heart: m("Heart"), Target: m("Target"), Dot: m("Dot"),
+};
+
 export const MARKERS = Object.entries(PATHS).map(([name, path]) => ({
   name,
+  label: LABELS[name],
   path,
   svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1024" height="1024"><path d="${path}"/></svg>`,
 }));

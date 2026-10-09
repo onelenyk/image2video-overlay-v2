@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Built, SampleKind } from "../engine/template";
 import { ScenePreview } from "./MiniPreview";
 import { SAMPLES } from "./templateSamples";
+import { t, type Msg } from "../i18n";
 
 /** One template as the gallery shows it. */
 export interface GalleryItem {
@@ -61,10 +62,10 @@ export function TemplateGallery({ items, layout = "grid", className = "" }: { it
 
   return (
     <div className={className}>
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2.5" role="tablist" aria-label="Kinds of template">
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2.5" role="tablist" aria-label={t("Kinds of template")}>
         {groups.map((name) => (
           <button key={name} type="button" role="tab" aria-selected={group === name} onClick={() => setPicked(name)} className={`shrink-0 h-8 px-3 rounded-full text-[12px] font-semibold whitespace-nowrap transition-colors ${group === name ? "bg-fg text-ink" : "bg-chip text-fg-muted hover:text-fg hover:bg-chip-hover"}`}>
-            {name}
+            {t(name as Msg)}
           </button>
         ))}
       </div>
@@ -82,7 +83,7 @@ export function TemplateGallery({ items, layout = "grid", className = "" }: { it
               <span className="block px-2.5 py-1.5 text-[12px] font-semibold text-fg truncate">{item.name}</span>
             </button>
             {item.onDelete && (
-              <button type="button" onClick={item.onDelete} aria-label={`Delete template ${item.name}`} title="Delete this template" className="absolute top-1.5 right-1.5 w-7 h-7 grid place-items-center rounded-full bg-black/70 text-fg hover:text-danger">
+              <button type="button" onClick={item.onDelete} aria-label={t("Delete template {name}", { name: item.name })} title={t("Delete this template")} className="absolute top-1.5 right-1.5 w-7 h-7 grid place-items-center rounded-full bg-black/70 text-fg hover:text-danger">
                 <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6L6 18" /></svg>
               </button>
             )}

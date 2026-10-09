@@ -7,9 +7,10 @@ import { MiniPreview } from "../MiniPreview";
 import { TemplateGallery, type GalleryItem } from "../TemplateGallery";
 import { MARKERS } from "../markers";
 import { buildSaved, buildTemplate, type Built } from "../../engine/template";
-import { LIBRARY, PREVIEW_H, PREVIEW_W } from "../templateLibrary";
+import { library as bundled, PREVIEW_H, PREVIEW_W } from "../templateLibrary";
 import { IconSearch } from "./IconSearch";
 import { pickFile } from "../util";
+import { m, t, tn, type Msg } from "../../i18n";
 
 // Add overlay: ready-made overlays, grouped into sections. Anything drawn by
 // hand lives in the Draw tool instead.
@@ -19,14 +20,14 @@ import { pickFile } from "../util";
 
 type SectionId = "templates" | "zones" | "arrows" | "text" | "icons" | "animated" | "images";
 
-const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: "templates", label: "Templates" },
-  { id: "zones", label: "Zones" },
-  { id: "arrows", label: "Arrows" },
-  { id: "text", label: "Text" },
-  { id: "icons", label: "Icons" },
-  { id: "animated", label: "Animated" },
-  { id: "images", label: "Images" },
+const SECTIONS: { id: SectionId; label: Msg }[] = [
+  { id: "templates", label: m("Templates") },
+  { id: "zones", label: m("Zones") },
+  { id: "arrows", label: m("Arrows") },
+  { id: "text", label: m("Text") },
+  { id: "icons", label: m("Icons") },
+  { id: "animated", label: m("Animated") },
+  { id: "images", label: m("Images") },
 ];
 
 const YELLOW = "#ffd60a";
@@ -87,8 +88,8 @@ export function AddPanel() {
     if (then === "animate") play();
   };
   /** Tile for a preset overlay: what you see on the tile is what gets added. */
-  const overlay = (label: string, kind: Preset, changes: Partial<BoxEl> | Partial<LineEl> | Partial<El> = {}, then: "style" | "animate" = "style") => (
-    <OverlayTile key={label} label={label} el={forTile({ ...makePreset(scene, kind), ...changes } as El)} onClick={() => add(kind, changes, then)} />
+  const overlay = (label: Msg, kind: Preset, changes: Partial<BoxEl> | Partial<LineEl> | Partial<El> = {}, then: "style" | "animate" = "style") => (
+    <OverlayTile key={label} label={t(label)} el={forTile({ ...makePreset(scene, kind), ...changes } as El)} onClick={() => add(kind, changes, then)} />
   );
   const box = (changes: Partial<BoxEl> = {}, label?: Partial<BoxEl["label"]>): Partial<BoxEl> => {
     const base = makePreset(scene, "rect") as BoxEl;
@@ -115,14 +116,14 @@ export function AddPanel() {
     if (!file) return;
     if (file.type === "image/svg+xml" || /\.svg$/i.test(file.name)) {
       const prepared = prepareSvg(await file.text());
-      if (!prepared) { notify("That SVG could not be read.", "error"); return; }
+      if (!prepared) { notify(t("That SVG could not be read."), "error"); return; }
       addAsset({ format: "svg", data: prepared.markup, aspect: prepared.aspect });
       return;
     }
     const data = await new Promise<string>((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result as string); r.readAsDataURL(file); });
     const img = new Image();
     await new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; img.src = data; });
-    if (!img.naturalWidth) { notify("That image could not be read.", "error"); return; }
+    if (!img.naturalWidth) { notify(t("That image could not be read."), "error"); return; }
     addAsset({ format: "png", data, aspect: img.naturalWidth / img.naturalHeight });
   };
 
@@ -142,18 +143,18 @@ export function AddPanel() {
     if (!window.matchMedia("(min-width: 1024px)").matches) setTool(null);
     seek(0);
     play();
-    notify(`${name} added as a group. Drag it into place; tap a piece again to edit it.`);
+    notify(t("{name} added as a group. Drag it into place; tap a piece again to edit it.", { name }));
   };
   // Previews are built once per template; the real thing is built for the actual stage on tap
-  const library = useMemo(() => LIBRARY.map((spec) => ({ spec, preview: buildTemplate(spec, PREVIEW_W, PREVIEW_H) })), []);
+  const library = useMemo(() => bundled().map((spec) => ({ spec, preview: buildTemplate(spec, PREVIEW_W, PREVIEW_H) })), []);
   const mine = useMemo(() => savedTemplates.map((saved) => ({ saved, preview: buildSaved(saved, saved.w, saved.h) })), [savedTemplates]);
   const gallery: GalleryItem[] = [
-    ...mine.map(({ saved, preview }) => ({ id: saved.id, name: saved.name, hint: `${saved.elements.length} overlays, saved by you`, group: "Mine", built: preview, width: saved.w, height: saved.h, onPick: () => applyBuilt(saved.name, buildSaved(saved, scene.stage.w, scene.stage.h)), onDelete: () => void deleteTemplate(saved.id) })),
+    ...mine.map(({ saved, preview }) => ({ id: saved.id, name: saved.name, hint: tn(saved.elements.length, "{n} overlay, saved by you", "{n} overlays, saved by you"), group: "Mine", built: preview, width: saved.w, height: saved.h, onPick: () => applyBuilt(saved.name, buildSaved(saved, scene.stage.w, scene.stage.h)), onDelete: () => void deleteTemplate(saved.id) })),
     ...library.map(({ spec, preview }) => ({ id: spec.id, name: spec.name, hint: spec.hint, group: spec.group, sample: spec.sample, built: preview, width: PREVIEW_W, height: PREVIEW_H, onPick: () => applyBuilt(spec.name, buildTemplate(spec, scene.stage.w, scene.stage.h)) })),
   ];
   const saveAll = () => {
-    if (!scene.elements.length) { notify("Add some overlays first, then save them as a template."); return; }
-    void saveTemplate(`My template ${savedTemplates.length + 1}`, null);
+    if (!scene.elements.length) { notify(t("Add some overlays first, then save them as a template.")); return; }
+    void saveTemplate(t("My template {n}", { n: savedTemplates.length + 1 }), null);
   };
 
   const content: Record<SectionId, ReactNode> = {
@@ -166,7 +167,7 @@ export function AddPanel() {
         {overlay("Outline", "rect", box({ opacity: 0, borderWidth: 8 }, { show: false }))}
         {overlay("Dashed", "rect", box({ opacity: 0.12, borderWidth: 6, dashed: true }, { show: false }))}
         {overlay("Circle", "ellipse", box({ w: 220, h: 220, opacity: 0, borderWidth: 8 }, { show: false }))}
-        <Tile label="Polygon" onClick={() => tool("polygon")}><Glyph><path d="M16 3l10 7-4 11H10L6 10z" {...fill} /></Glyph></Tile>
+        <Tile label={t("Polygon")} onClick={() => tool("polygon")}><Glyph><path d="M16 3l10 7-4 11H10L6 10z" {...fill} /></Glyph></Tile>
       </>
     ),
     arrows: (
@@ -183,17 +184,17 @@ export function AddPanel() {
     text: (
       <>
         {overlay("Text", "text")}
-        {overlay("Title", "text", box({ w: 620, h: 150 }, { text: "Title", size: 110 }))}
-        {overlay("Label", "rect", box({ w: 300, h: 90, radius: 45, opacity: 1, borderWidth: 0, color: "#111827" }, { text: "Label", size: 40 }))}
-        {overlay("Caption", "rect", box({ w: 640, h: 120, radius: 16, opacity: 0.75, borderWidth: 0, color: "#000000" }, { text: "Caption", size: 44 }))}
+        {overlay("Title", "text", box({ w: 620, h: 150 }, { text: t("Title"), size: 110 }))}
+        {overlay("Label", "rect", box({ w: 300, h: 90, radius: 45, opacity: 1, borderWidth: 0, color: "#111827" }, { text: t("Label"), size: 40 }))}
+        {overlay("Caption", "rect", box({ w: 640, h: 120, radius: 16, opacity: 0.75, borderWidth: 0, color: "#000000" }, { text: t("Caption"), size: 44 }))}
         {overlay("Number", "ellipse", box({ w: 96, h: 96, opacity: 1, borderWidth: 0, color: YELLOW }, { text: badgeNumber(), size: 52, color: "#000000" }))}
-        {overlay("Sticky", "rect", box({ w: 300, h: 220, radius: 10, opacity: 1, borderWidth: 0, color: YELLOW }, { text: "Note", size: 44, color: "#000000" }))}
+        {overlay("Sticky", "rect", box({ w: 300, h: 220, radius: 10, opacity: 1, borderWidth: 0, color: YELLOW }, { text: t("Note"), size: 44, color: "#000000" }))}
       </>
     ),
     icons: (
       <>
         {MARKERS.map((marker) => (
-          <Tile key={marker.name} label={marker.name} onClick={() => addMarker(marker.svg)}>
+          <Tile key={marker.name} label={t(marker.label)} onClick={() => addMarker(marker.svg)}>
             <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor" aria-hidden><path d={marker.path} /></svg>
           </Tile>
         ))}
@@ -207,17 +208,17 @@ export function AddPanel() {
         {overlay("Drawn arrow", "arrow", { anim: anim("draw", 2.5) }, "animate")}
         {overlay("Train line", "line", { anim: anim("train", 2) }, "animate")}
         {overlay("Ripple point", "point", { anim: anim("ripple", 2) }, "animate")}
-        <Tile label="Bouncing pin" onClick={() => addMarker(pin.svg, anim("bounce", 1))}>
+        <Tile label={t("Bouncing pin")} onClick={() => addMarker(pin.svg, anim("bounce", 1))}>
           <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor" aria-hidden><path d={pin.path} /></svg>
         </Tile>
-        {overlay("Pop label", "rect", { ...box({ w: 300, h: 90, radius: 45, opacity: 1, borderWidth: 0, color: YELLOW }, { text: "Look here", size: 40, color: "#000000" }), anim: anim("pop", 3) }, "animate")}
+        {overlay("Pop label", "rect", { ...box({ w: 300, h: 90, radius: 45, opacity: 1, borderWidth: 0, color: YELLOW }, { text: t("Look here"), size: 40, color: "#000000" }), anim: anim("pop", 3) }, "animate")}
       </>
     ),
     images: (
       <>
-        <Tile label="Upload" onClick={upload}><Glyph><path d="M16 16V5M11 10l5-5 5 5M6 16v4h20v-4" /></Glyph></Tile>
+        <Tile label={t("Upload")} onClick={upload}><Glyph><path d="M16 16V5M11 10l5-5 5 5M6 16v4h20v-4" /></Glyph></Tile>
         {used.map(([key, asset]) => (
-          <Tile key={key} label="Reuse" onClick={() => addAsset(asset)}>
+          <Tile key={key} label={t("Reuse")} onClick={() => addAsset(asset)}>
             <img
               src={asset.format === "svg" ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(asset.data)}` : asset.data}
               alt=""
@@ -232,7 +233,7 @@ export function AddPanel() {
   return (
     <div className="space-y-2 lg:space-y-4">
       {/* Section tabs: phone only */}
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 lg:hidden" role="tablist" aria-label="Kinds of overlay">
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 lg:hidden" role="tablist" aria-label={t("Kinds of overlay")}>
         {SECTIONS.map((item) => (
           <button
             key={item.id}
@@ -242,29 +243,29 @@ export function AddPanel() {
             onClick={() => setSection(item.id)}
             className={`shrink-0 h-9 px-3 rounded-full text-[13px] font-semibold whitespace-nowrap ${section === item.id ? "bg-fg text-ink" : "text-fg-muted hover:text-fg"}`}
           >
-            {item.label}
+            {t(item.label)}
           </button>
         ))}
       </div>
 
       {/* Wide: ready-made sets or single overlays */}
-      <div className="hidden lg:grid grid-cols-2 gap-1 p-1 rounded-control bg-chip" role="tablist" aria-label="What to add">
-        {([["templates", "Templates"], ["zones", "Shapes & text"]] as const).map(([id, label]) => {
+      <div className="hidden lg:grid grid-cols-2 gap-1 p-1 rounded-control bg-chip" role="tablist" aria-label={t("What to add")}>
+        {([["templates", m("Templates")], ["zones", m("Shapes & text")]] as const).map(([id, label]) => {
           const on = (section === "templates") === (id === "templates");
-          return <button key={id} type="button" role="tab" aria-selected={on} onClick={() => { if (!on) setSection(id); }} className={`h-8 rounded-[7px] text-[13px] font-semibold transition-colors ${on ? "bg-chip-active text-fg" : "text-fg-muted hover:text-fg"}`}>{label}</button>;
+          return <button key={id} type="button" role="tab" aria-selected={on} onClick={() => { if (!on) setSection(id); }} className={`h-8 rounded-[7px] text-[13px] font-semibold transition-colors ${on ? "bg-chip-active text-fg" : "text-fg-muted hover:text-fg"}`}>{t(label)}</button>;
         })}
       </div>
 
       {section === "templates" && (
-        <section aria-label="Templates">
+        <section aria-label={t("Templates")}>
           <TemplateGallery items={gallery} />
-          <button type="button" onClick={saveAll} className="mt-3 w-full h-10 rounded-control bg-chip hover:bg-chip-hover text-[13px] font-semibold text-fg">Save current overlays as a template</button>
+          <button type="button" onClick={saveAll} className="mt-3 w-full h-10 rounded-control bg-chip hover:bg-chip-hover text-[13px] font-semibold text-fg">{t("Save current overlays as a template")}</button>
         </section>
       )}
       {SECTIONS.filter((item) => item.id !== "templates").map((item) => (
-        <section key={item.id} aria-label={item.label} className={section === item.id ? "" : section === "templates" ? "hidden" : "hidden lg:block"}>
-          <h3 className="hidden lg:block mb-2 text-[11px] font-semibold uppercase tracking-[0.09em] text-fg-subtle">{item.label}</h3>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 lg:overflow-visible">
+        <section key={item.id} aria-label={t(item.label)} className={section === item.id ? "" : section === "templates" ? "hidden" : "hidden lg:block"}>
+          <h3 className="hidden lg:block mb-2 text-[11px] font-semibold uppercase tracking-[0.09em] text-fg-subtle">{t(item.label)}</h3>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3 lg:overflow-visible">
             {content[item.id]}
           </div>
           {item.id === "icons" && <div className="mt-3"><IconSearch onPick={(svg) => addMarker(svg)} /></div>}
