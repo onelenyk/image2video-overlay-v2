@@ -4,7 +4,7 @@ import { drawScene, preloadAssets } from "../engine/renderer";
 import { makeImage, makePath, makePreset, newScene, normalizeScene, storyLength, videoLength, type Preset } from "../engine/scene";
 import type { Quality } from "../engine/exporter";
 import { ASPECTS, STAGE_W, type Asset, type El, type Scene, type Stage, type Vec } from "../engine/types";
-import { parseSaved, type SavedTemplate } from "../engine/template";
+import { parseSaved, type Built, type SavedTemplate } from "../engine/template";
 import { currentUser, storage, useSession } from "./session";
 import { PROJECT_FORMAT, newId, type ProjectMeta } from "./storage";
 import { t } from "../i18n";
@@ -94,14 +94,22 @@ interface State {
   addElement: (el: El) => void;
   addAssetImage: (asset: Asset) => void;
   /** Add a set of overlays (and the assets they use) as one named group and one undo step. */
-  addGroup: (name: string, elements: El[], assets: Record<string, Asset>) => void;
+  /** Adds a template's overlays. Those in a set become a group per set; with no sets at all, everything is one group called `name`. */
+  addGroup: (name: string, elements: El[], assets: Record<string, Asset>, sets?: Built["sets"]) => void;
   selectGroup: (group: string | null) => void;
+  /** Puts existing overlays into a new group (they leave any group they were in). Needs two or more. */
+  makeGroup: (ids: string[], name: string) => void;
+  /** Takes one overlay out of its group; a group left with one member is dissolved. */
+  leaveGroup: (id: string) => void;
+  renameGroup: (group: string, name: string) => void;
   ungroup: (group: string) => void;
   removeGroup: (group: string) => void;
   /** Move everything in the group that has a time by `seconds` along the timeline. */
   shiftGroup: (group: string, seconds: number) => void;
   /** Save a group (or, with null, every overlay) as a reusable template. */
   saveTemplate: (name: string, group: string | null) => Promise<void>;
+  /** Saves overlays that are not on the photo (e.g. an AI draft) as a template. */
+  saveBuiltTemplate: (name: string, built: Built) => Promise<boolean>;
   deleteTemplate: (id: string) => Promise<void>;
   loadTemplates: () => Promise<void>;
   addStroke: (points: Vec[], times: number[] | null, start: number) => void;
@@ -429,21 +437,78 @@ export const useEditor = create<State>((set, get) => {
       get().addElement(makeImage(scene, key, asset, current?.color));
     },
 
-    addGroup: (name, elements, assets) => {
+    addGroup: (name, elements, assets, sets) => {
       const { scene } = get();
       let next = scene.nextId;
-      const group = `g${next}`;
-      const fresh = elements.map((el) => ({ ...el, id: `e${next++}`, group }));
+      const base = `g${next}`;
+      const groups = { ...scene.groups };
+      const ids = new Map<string, string>();
+      const anySet = !!sets?.some(Boolean);
+      const whole = !anySet && elements.length > 1; // one group for everything
+      const fresh = elements.map((el, index) => {
+        const part = sets?.[index];
+        let group: string | undefined;
+        if (whole) group = base;
+        else if (!anySet) group = undefined;
+        else if (part) {
+          group = ids.get(part.key);
+          if (!group) { group = `${base}_${ids.size + 1}`; ids.set(part.key, group); groups[group] = { name: (part.name || name).slice(0, 40) }; }
+        }
+        return { ...el, id: `e${next++}`, group };
+      });
+      if (whole) groups[base] = { name: name.slice(0, 40) };
+      // A set with a single member is not worth a group
+      const sizes = new Map<string, number>();
+      fresh.forEach((el) => { if (el.group) sizes.set(el.group, (sizes.get(el.group) ?? 0) + 1); });
+      const placed = fresh.map((el) => (el.group && anySet && sizes.get(el.group)! < 2 ? { ...el, group: undefined } : el));
+      if (anySet) Object.keys(groups).forEach((id) => { if (sizes.has(id) && sizes.get(id)! < 2) delete groups[id]; });
       set({
         assets: { ...get().assets, ...assets },
-        scene: { ...scene, elements: [...scene.elements, ...fresh], nextId: next, groups: { ...scene.groups, [group]: { name: name.slice(0, 40) } } },
-        selectedId: null,
-        groupSel: group,
+        scene: { ...scene, elements: [...scene.elements, ...placed], nextId: next, groups },
+        selectedId: whole || anySet ? null : placed[0]?.id ?? null,
+        groupSel: whole ? base : null,
       });
       get().commit();
     },
 
     selectGroup: (group) => set({ groupSel: group, selectedId: null }),
+
+    makeGroup: (ids, name) => {
+      const { scene } = get();
+      const picked = new Set(ids);
+      if (scene.elements.filter((el) => picked.has(el.id)).length < 2) return;
+      let n = 1;
+      while (scene.groups?.[`g${n}`] || scene.elements.some((el) => el.group === `g${n}`)) n++;
+      const group = `g${n}`;
+      const elements = scene.elements.map((el) => (picked.has(el.id) ? { ...el, group } : el));
+      // Groups that lost members to the new one: drop the empty ones, dissolve the single-member ones
+      const groups: NonNullable<Scene["groups"]> = { ...scene.groups, [group]: { name: name.trim().slice(0, 40) || t("Group") } };
+      const counts = new Map<string, number>();
+      elements.forEach((el) => { if (el.group) counts.set(el.group, (counts.get(el.group) ?? 0) + 1); });
+      const kept = elements.map((el) => (el.group && (counts.get(el.group) ?? 0) < 2 ? { ...el, group: undefined } : el));
+      Object.keys(groups).forEach((id) => { if ((counts.get(id) ?? 0) < 2) delete groups[id]; });
+      set({ scene: { ...scene, elements: kept, groups }, selectedId: null, groupSel: group });
+      get().commit();
+    },
+
+    leaveGroup: (id) => {
+      const { scene } = get();
+      const group = scene.elements.find((el) => el.id === id)?.group;
+      if (!group) return;
+      const rest = scene.elements.filter((el) => el.group === group && el.id !== id).length;
+      const groups = { ...scene.groups };
+      if (rest < 2) delete groups[group];
+      set({ scene: { ...scene, groups, elements: scene.elements.map((el) => (el.group === group && (el.id === id || rest < 2) ? { ...el, group: undefined } : el)) }, groupSel: null, selectedId: id });
+      get().commit();
+    },
+
+    renameGroup: (group, name) => {
+      const { scene } = get();
+      const clean = name.trim().slice(0, 40);
+      if (!clean || !scene.groups?.[group] || scene.groups[group].name === clean) return;
+      set({ scene: { ...scene, groups: { ...scene.groups, [group]: { ...scene.groups[group], name: clean } } } });
+      get().commit();
+    },
 
     ungroup: (group) => {
       const { scene } = get();
@@ -496,13 +561,23 @@ export const useEditor = create<State>((set, get) => {
       // Validate exactly as it will be validated when loaded back
       const saved = parseSaved({
         v: 1, kind: "snapshot", id: newId(), name: name.trim().slice(0, 40) || t("My template"),
-        w: scene.stage.w, h: scene.stage.h, elements,
+        w: scene.stage.w, h: scene.stage.h, elements, groups: group ? undefined : scene.groups,
         assets: Object.fromEntries(Object.entries(assets).filter(([key]) => used.has(key))),
       });
       if (!saved) { get().notify(t("Nothing to save as a template."), "error"); return; }
       try { await storage.putTemplate(saved.id, saved); } catch { get().notify(t("Could not save the template on this device."), "error"); return; }
       set({ savedTemplates: [...savedTemplates, saved] });
       get().notify(t("Saved “{name}” to Templates.", { name: saved.name }));
+    },
+
+    saveBuiltTemplate: async (name, built) => {
+      const { scene, savedTemplates } = get();
+      const saved = parseSaved({ v: 1, kind: "snapshot", id: newId(), name: name.trim().slice(0, 40) || t("My template"), w: scene.stage.w, h: scene.stage.h, elements: built.elements.map((el, index) => ({ ...el, id: `t${index + 1}`, group: built.sets[index]?.key })), groups: Object.fromEntries(built.sets.filter((part) => !!part).map((part) => [part.key, { name: part.name }])), assets: built.assets });
+      if (!saved) { get().notify(t("Nothing to save as a template."), "error"); return false; }
+      try { await storage.putTemplate(saved.id, saved); } catch { get().notify(t("Could not save the template on this device."), "error"); return false; }
+      set({ savedTemplates: [...savedTemplates, saved] });
+      get().notify(t("Saved “{name}” to Templates.", { name: saved.name }));
+      return true;
     },
 
     deleteTemplate: async (id) => {

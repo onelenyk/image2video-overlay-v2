@@ -1,9 +1,10 @@
 import { videoLength } from "../../engine/scene";
 import type { Stage } from "../../engine/types";
 import { useEditor } from "../../editor/store";
-import { Button, Chip, ConfirmButton, Row, Slider } from "../kit";
+import { GRIDS, useHelpers } from "../../editor/helpers";
+import { Button, Chip, ConfirmButton, Row, Slider, Toggle } from "../kit";
 import { pickFile } from "../util";
-import { t, secs } from "../../i18n";
+import { m, t, secs, type Msg } from "../../i18n";
 
 const RATIOS: { value: Stage["aspect"]; label: string }[] = [
   { value: "image", label: "Photo" },
@@ -13,6 +14,26 @@ const RATIOS: { value: Stage["aspect"]; label: string }[] = [
   { value: "16:9", label: "16:9" },
 ];
 const BACKGROUNDS = ["#2c2c2e", "#000000", "#ffffff", "#1e293b", "#f1f5f9"];
+
+const GRID_NAMES: Record<(typeof GRIDS)[number], Msg> = { off: m("Off"), thirds: m("Thirds"), squares: m("Squares"), fine: m("Fine") };
+
+/** Grid, rulers, snapping and the magnifier: aids for placing things precisely. They are not part of the video. */
+function Helpers() {
+  const { grid, rulers, snap, loupe, change } = useHelpers();
+  return (
+    <section className="space-y-2 pt-3" aria-label={t("Helpers")}>
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.09em] text-fg-subtle">{t("Helpers")}</h3>
+      <Row>
+        <span className="shrink-0 text-[13px] text-fg-muted w-16">{t("Grid")}</span>
+        {GRIDS.map((kind) => <Chip key={kind} active={grid === kind} onClick={() => change({ grid: kind })}>{t(GRID_NAMES[kind])}</Chip>)}
+      </Row>
+      <Toggle label={t("Rulers")} checked={rulers} onChange={(on) => change({ rulers: on })} />
+      <Toggle label={t("Align to overlays and edges")} checked={snap} onChange={(on) => change({ snap: on })} />
+      <Toggle label={t("Magnifier while dragging")} checked={loupe} onChange={(on) => change({ loupe: on })} />
+      <p className="text-[12px] leading-snug text-fg-subtle">{t("Helpers are not part of the video. Hold Alt while dragging to move freely.")}</p>
+    </section>
+  );
+}
 
 /** Photo, frame shape, background and video length. */
 export function CanvasPanel() {
@@ -61,6 +82,7 @@ export function CanvasPanel() {
       </Row>
       <p className="text-[12px] text-fg-muted">{t("{seconds}s · {what}", { seconds: length.seconds.toFixed(1), what: describe })}</p>
       {scene.duration.mode === "custom" && <Slider label={t("Seconds")} value={scene.duration.seconds} min={1} max={60} step={0.5} onChange={(seconds) => setDuration({ mode: "custom", seconds })} format={(v) => `${secs(v, 1)}`} />}
+      <Helpers />
     </div>
   );
 }

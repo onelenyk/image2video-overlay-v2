@@ -1,4 +1,12 @@
 export const panels = {
+  "{name} added. Things that belong together are grouped: drag a group into place, tap a piece again to edit it.": "{name} додано. Пов'язані частини згруповано: перетягніть групу на місце; щоб змінити частину, торкніться її ще раз.",
+  "New group": "Нова група",
+  "Group {n}": "Згрупувати {n}",
+  "Tick the overlays that should move together.": "Позначте оверлеї, які мають рухатись разом.",
+  "Out of group": "З групи",
+  "Group name": "Назва групи",
+  "Rename": "Перейменувати",
+  "Cancel": "Скасувати",
   "{name} added as a group. Drag it into place; tap a piece again to edit it.": "{name} додано як групу. Перетягніть на місце; щоб змінити частину, торкніться її ще раз.",
   "{seconds}s · {what}": "{seconds} с · {what}",
   "Actions for {name}": "Дії для {name}",

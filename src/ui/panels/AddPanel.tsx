@@ -1,9 +1,10 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { prepareSvg } from "../../engine/renderer";
 import { makePreset, type Preset } from "../../engine/scene";
 import type { Anim, AnimType, Asset, BoxEl, El, LineEl } from "../../engine/types";
 import { useEditor, type Mode } from "../../editor/store";
 import { MiniPreview } from "../MiniPreview";
+import { AiTemplateSheet } from "../AiTemplateSheet";
 import { TemplateGallery, type GalleryItem } from "../TemplateGallery";
 import { MARKERS } from "../markers";
 import { buildSaved, buildTemplate, type Built } from "../../engine/template";
@@ -80,6 +81,7 @@ export function AddPanel() {
   // Kept in the store so reopening the panel returns to the section used last
   const section = (useEditor((state) => state.addSection) as SectionId | null) ?? "zones";
   const setSection = useEditor((state) => state.setAddSection);
+  const [ai, setAi] = useState(false);
 
   /** A preset element with some fields changed; `then` picks which tool opens next. */
   const add = (kind: Preset, changes: Partial<BoxEl> | Partial<LineEl> | Partial<El> = {}, then: "style" | "animate" = "style") => {
@@ -139,11 +141,11 @@ export function AddPanel() {
 
   // A template lands spread over the photo as one group and plays straight away
   const applyBuilt = (name: string, built: Built) => {
-    addGroup(name, built.elements, built.assets);
+    addGroup(name, built.elements, built.assets, built.sets);
     if (!window.matchMedia("(min-width: 1024px)").matches) setTool(null);
     seek(0);
     play();
-    notify(t("{name} added as a group. Drag it into place; tap a piece again to edit it.", { name }));
+    notify(built.sets.some(Boolean) ? t("{name} added. Things that belong together are grouped: drag a group into place, tap a piece again to edit it.", { name }) : t("{name} added as a group. Drag it into place; tap a piece again to edit it.", { name }));
   };
   // Previews are built once per template; the real thing is built for the actual stage on tap
   const library = useMemo(() => bundled().map((spec) => ({ spec, preview: buildTemplate(spec, PREVIEW_W, PREVIEW_H) })), []);
@@ -258,7 +260,12 @@ export function AddPanel() {
 
       {section === "templates" && (
         <section aria-label={t("Templates")}>
+          <button type="button" onClick={() => setAi(true)} className="mb-3 w-full h-11 rounded-control bg-chip hover:bg-chip-hover text-[13px] font-semibold text-fg flex items-center justify-center gap-2">
+            <svg viewBox="0 0 24 24" className="w-4 h-4 text-brand" fill="currentColor" aria-hidden><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z" /></svg>
+            {t("Create with AI")}
+          </button>
           <TemplateGallery items={gallery} />
+          {ai && <AiTemplateSheet onClose={() => setAi(false)} onAdd={(name, built) => { setAi(false); applyBuilt(name, built); }} />}
           <button type="button" onClick={saveAll} className="mt-3 w-full h-10 rounded-control bg-chip hover:bg-chip-hover text-[13px] font-semibold text-fg">{t("Save current overlays as a template")}</button>
         </section>
       )}

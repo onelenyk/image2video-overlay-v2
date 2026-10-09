@@ -103,6 +103,7 @@ export function localizeTemplate(spec: TemplateSpec): TemplateSpec {
   if (currentLang() !== "uk") return spec;
   const parts = spec.parts.map((part): Part => {
     const out = { ...part, name: templateText(part.name ?? partName(part)) } as Part;
+    if (out.set) out.set = templateText(out.set);
     if ("text" in out) out.text = templateText(out.text);
     if ("label" in out && out.label) out.label = templateText(out.label);
     return out;

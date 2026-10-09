@@ -51,6 +51,7 @@ const SYMBOLS = {
   star: '<path d="M24 5l5.9 12 13.1 1.9-9.5 9.3 2.2 13.1L24 35l-11.7 6.3 2.2-13.1L5 18.9 18.1 17z" fill="#000" stroke="none"/>',
 } as const;
 export type SymbolName = keyof typeof SYMBOLS;
+export const SYMBOL_NAMES = Object.keys(SYMBOLS) as SymbolName[];
 
 // ---------- the template format ----------
 interface PartBase {
@@ -60,6 +61,8 @@ interface PartBase {
   until?: number;
   anim?: { type: AnimType; seconds?: number };
   name?: string;
+  /** Parts with the same `set` belong together (a zone and its label) and land on the photo as one group of that name. */
+  set?: string;
 }
 /** x, y, w, h and d are fractions of the stage: 0..1 across its width (x, w, d) or height (y, h). */
 export type Part = PartBase & (
@@ -122,6 +125,8 @@ function parsePart(raw: unknown): Part | null {
   if (until !== null && until > (at ?? 0)) common.until = until;
   const name = str(r.name, 40);
   if (name) common.name = name;
+  const set = str(r.set, 40)?.trim();
+  if (set) common.set = set;
   const a = r.anim as Record<string, unknown> | undefined;
   if (a && typeof a.type === "string" && Object.hasOwn(ANIMATIONS, a.type)) common.anim = { type: a.type as AnimType, seconds: num(a.seconds, 0.3, 10) ?? undefined };
   const tone = oneOf(r.tone, TONES, "accent");
@@ -207,12 +212,15 @@ export function partName(part: Part): string {
 export interface Built {
   elements: El[];
   assets: Record<string, Asset>;
+  /** For each element, the set it belongs to (same key = moves together), or null. */
+  sets: ({ key: string; name: string } | null)[];
 }
 
 /** Overlays for a validated template on a W x H stage. Ids are left empty for the editor to assign. */
 export function buildTemplate(spec: TemplateSpec, W: number, H: number): Built {
   const assets: Record<string, Asset> = {};
   const elements: El[] = [];
+  const sets: Built["sets"] = [];
   const P = ([x, y]: [number, number]): Vec => ({ x: W * x, y: H * y });
 
   spec.parts.forEach((part) => {
@@ -277,8 +285,9 @@ export function buildTemplate(spec: TemplateSpec, W: number, H: number): Built {
       el.anim = { enabled: true, type: part.anim.type, duration: part.anim.seconds ?? 1.6, delay: 0, intensity: 1 } satisfies Anim;
     }
     elements.push(el);
+    sets.push(part.set ? { key: part.set, name: part.set } : null);
   });
-  return { elements, assets };
+  return { elements, assets, sets };
 }
 
 // ---------- templates made from the user's own overlays ----------
@@ -292,6 +301,8 @@ export interface SavedTemplate {
   h: number;
   elements: El[];
   assets: Record<string, Asset>;
+  /** Names of the groups the elements refer to by `group`. */
+  groups?: Record<string, { name: string }>;
 }
 
 const MAX_ASSET_CHARS = 2_000_000;
@@ -303,7 +314,7 @@ export function parseSaved(raw: unknown): SavedTemplate | null {
   const id = str(r.id, 60), name = str(r.name, 40);
   const w = num(r.w, 100, 5000), h = num(r.h, 100, 5000);
   if (!id || !name || w === null || h === null) return null;
-  const scene = normalizeScene({ stage: { h }, elements: r.elements } as unknown as Scene);
+  const scene = normalizeScene({ stage: { h }, elements: r.elements, groups: r.groups } as unknown as Scene);
   if (!scene || !scene.elements.length || scene.elements.length > 200) return null;
   const assets: Record<string, Asset> = {};
   for (const [key, value] of Object.entries((r.assets as Record<string, Asset>) ?? {})) {
@@ -317,7 +328,7 @@ export function parseSaved(raw: unknown): SavedTemplate | null {
   }
   // Overlays whose picture did not survive the checks cannot be drawn
   const elements = scene.elements.filter((el) => el.type !== "image" || assets[el.asset]);
-  return elements.length ? { v: 1, kind: "snapshot", id, name, w, h, elements, assets } : null;
+  return elements.length ? { v: 1, kind: "snapshot", id, name, w, h, elements, assets, groups: scene.groups } : null;
 }
 
 /** A saved snapshot fitted to another stage: positions follow the new proportions, sizes follow its width. */
@@ -337,5 +348,6 @@ export function buildSaved(saved: SavedTemplate, W: number, H: number): Built {
       }
     }
   });
-  return { elements, assets: saved.assets };
+  const sets = saved.elements.map((el) => (el.group ? { key: el.group, name: saved.groups?.[el.group]?.name ?? "" } : null));
+  return { elements, assets: saved.assets, sets };
 }

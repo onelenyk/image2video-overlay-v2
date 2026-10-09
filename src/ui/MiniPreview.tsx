@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { boundsOf, moved } from "../engine/geometry";
 import { drawScene, preloadAssets } from "../engine/renderer";
 import type { Asset, El, Scene } from "../engine/types";
@@ -58,7 +58,7 @@ export function MiniPreview({ el, assets = NO_ASSETS, animate = false, className
 }
 
 /** A preview of several overlays together on a W x H stage (used for templates): a loop, or one still frame. */
-export function ScenePreview({ elements, assets, width, height, seconds, startAt = 0, playing = true, className = "" }: { elements: El[]; assets: Record<string, Asset>; width: number; height: number; seconds: number; /** Where in the loop the preview opens (or stays, when it is not playing). */ startAt?: number; playing?: boolean; className?: string }) {
+export function ScenePreview({ elements, assets, width, height, seconds, startAt = 0, playing = true, className = "", style }: { elements: El[]; assets: Record<string, Asset>; width: number; height: number; seconds: number; /** Where in the loop the preview opens (or stays, when it is not playing). */ startAt?: number; playing?: boolean; className?: string; style?: CSSProperties }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const signature = JSON.stringify(elements);
 
@@ -101,5 +101,5 @@ export function ScenePreview({ elements, assets, width, height, seconds, startAt
     return () => { disposed = true; stop(); };
   }, [signature, assets, width, height, seconds, startAt, playing]);
 
-  return <canvas ref={ref} className={className} aria-hidden />;
+  return <canvas ref={ref} className={className} style={style} aria-hidden />;
 }

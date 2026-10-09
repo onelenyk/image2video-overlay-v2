@@ -4,7 +4,8 @@ import { drawScene, preloadAssets, prescale } from "../engine/renderer";
 import { makePolygon } from "../engine/scene";
 import type { Anchor, El, LineEl, PolygonEl, Scene, Vec } from "../engine/types";
 import { sketchLook, useEditor, type Mode } from "./store";
-import { t } from "../i18n";
+import { t, type Msg } from "../i18n";
+import { GRIDS, gridLines, useHelpers } from "./helpers";
 
 // The stage: draws the scene with the shared renderer and turns pointer input
 // (mouse, pen or finger) into edits. Selection handles are painted on top and
@@ -13,7 +14,10 @@ import { t } from "../i18n";
 const CORNERS: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1], [0, -1], [1, 0], [0, 1], [-1, 0]];
 const ROTATE_OFFSET = 30; // css px above the top edge
 const MIN_SIZE = 12;
-const MAX_ZOOM = 8;
+const MAX_ZOOM = 16;
+const RULER = 18; // css px
+const LOUPE = 136, LOUPE_ZOOM = 3;
+const GRID_NAMES: Record<(typeof GRIDS)[number], Msg> = { off: "Off", thirds: "Thirds", squares: "Squares", fine: "Fine" };
 const MAX_PIXELS = 8_000_000; // backing store of the editing canvas, however far it is zoomed
 
 type Drag =
@@ -27,6 +31,8 @@ type Drag =
   | { kind: "stroke"; mode: Mode; points: Vec[]; times: number[]; start: number };
 
 interface Guide { x?: number; y?: number }
+/** A line something can snap to; quiet ones (the grid) pull without drawing a guide. */
+interface SnapLine { at: number; quiet?: boolean }
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -72,6 +78,8 @@ function removeVertex(scene: Scene, polygon: PolygonEl, index: number): Scene {
 export function EditorCanvas() {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rulersRef = useRef<HTMLCanvasElement>(null);
+  const loupeRef = useRef<HTMLCanvasElement>(null);
   // Zoom is a way of looking at the stage while editing. It never reaches the scene or the export.
   const [zoom, setZoom] = useState(1);
   const viewRef = useRef<{ zoomBy: (factor: number) => void; reset: () => void } | null>(null);
@@ -82,6 +90,10 @@ export function EditorCanvas() {
     const store = useEditor;
     let drag: Drag | null = null;
     let guides: Guide[] = [];
+    const rulers = rulersRef.current!, loupe = loupeRef.current!;
+    let pointer: { x: number; y: number } | null = null; // client px, while the pointer is over the stage area
+    let aidsDirty = true; // rulers and magnifier follow the pointer without repainting the scene
+    const unsubscribeHelpers = useHelpers.subscribe(() => { dirty = true; });
     let hoverSnap: Vec | null = null;
     let background: { key: string; canvas: HTMLCanvasElement } | null = null;
     let lastKey: unknown[] = [];
@@ -110,6 +122,7 @@ export function EditorCanvas() {
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       canvas.style.transform = `translate(calc(-50% + ${view.x}px), calc(-50% + ${view.y}px))`;
+      aidsDirty = true;
       return { w, h };
     };
     const layout = () => {
@@ -141,11 +154,103 @@ export function EditorCanvas() {
       zoomBy: (factor) => zoomAt(Math.round(view.zoom * factor * 4) / 4, ...hostCentre()),
       reset: () => zoomAt(1, ...hostCentre()),
     };
+    // Where the pointer is, for the rulers and the magnifier
+    const onHover = (e: PointerEvent) => { pointer = { x: e.clientX, y: e.clientY }; aidsDirty = true; };
+    const onLeave = () => { pointer = null; aidsDirty = true; };
+    const onRelease = (e: PointerEvent) => { if (e.pointerType !== "mouse") pointer = null; aidsDirty = true; };
+    host.addEventListener("pointermove", onHover);
+    host.addEventListener("pointerdown", onHover);
+    host.addEventListener("pointerleave", onLeave);
+    host.addEventListener("pointerup", onRelease);
+    host.addEventListener("pointercancel", onRelease);
     const observer = new ResizeObserver(layout);
     observer.observe(host);
 
     // ---------- drawing ----------
-    const paint = () => {
+    /** Rulers along the top and left of the stage area, in stage units, with a mark at the pointer. */
+    const drawRulers = () => {
+      const on = useHelpers.getState().rulers;
+      rulers.style.display = on ? "block" : "none";
+      if (!on) return;
+      const box = host.getBoundingClientRect(), stageBox = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const pw = Math.round(box.width * dpr), ph = Math.round(box.height * dpr);
+      if (rulers.width !== pw || rulers.height !== ph) { rulers.width = pw; rulers.height = ph; }
+      const o = rulers.getContext("2d")!;
+      o.setTransform(dpr, 0, 0, dpr, 0, 0);
+      o.clearRect(0, 0, box.width, box.height);
+      const { stage } = store.getState().scene;
+      const scale = stageBox.width / stage.w; // css px per stage unit
+      const ox = stageBox.left - box.left, oy = stageBox.top - box.top;
+      const major = [1, 2, 5, 10, 20, 50, 100, 200, 500].find((step) => step * scale >= 56) ?? 500;
+      const minor = major / 5;
+      o.fillStyle = "rgba(14,14,15,0.88)";
+      o.fillRect(0, 0, box.width, RULER);
+      o.fillRect(0, RULER, RULER, box.height - RULER);
+      o.strokeStyle = "#8e8e93";
+      o.fillStyle = "#aeaeb2";
+      o.lineWidth = 1;
+      o.font = "9px ui-monospace, Menlo, monospace";
+      o.textBaseline = "top";
+      o.beginPath();
+      for (let i = 0; i * minor <= stage.w + 0.01; i++) {
+        const x = Math.round(ox + i * minor * scale) + 0.5;
+        if (x < RULER || x > box.width) continue;
+        const big = i % 5 === 0;
+        o.moveTo(x, RULER); o.lineTo(x, RULER - (big ? 9 : 4));
+        if (big) o.fillText(String(Math.round(i * minor)), x + 3, 2);
+      }
+      for (let i = 0; i * minor <= stage.h + 0.01; i++) {
+        const y = Math.round(oy + i * minor * scale) + 0.5;
+        if (y < RULER || y > box.height) continue;
+        const big = i % 5 === 0;
+        o.moveTo(RULER, y); o.lineTo(RULER - (big ? 9 : 4), y);
+        if (big) { o.save(); o.translate(2, y + 3); o.rotate(Math.PI / 2); o.fillText(String(Math.round(i * minor)), 0, -8); o.restore(); }
+      }
+      o.stroke();
+      if (pointer) {
+        o.strokeStyle = "#ffd60a";
+        o.lineWidth = 1.5;
+        o.beginPath();
+        const px = pointer.x - box.left, py = pointer.y - box.top;
+        if (px > RULER) { o.moveTo(px, 0); o.lineTo(px, RULER); }
+        if (py > RULER) { o.moveTo(0, py); o.lineTo(RULER, py); }
+        o.stroke();
+      }
+    };
+
+    /** The magnifier: what is under the pointer, three times larger, shown clear of the finger. */
+    const drawLoupe = () => {
+      const state = store.getState();
+      const on = useHelpers.getState().loupe && !!pointer && !state.playing && (!!drag || state.mode !== "select");
+      loupe.style.display = on ? "block" : "none";
+      if (!on || !pointer) return;
+      const box = host.getBoundingClientRect(), stageBox = canvas.getBoundingClientRect();
+      const size = LOUPE * 2;
+      if (loupe.width !== size) { loupe.width = size; loupe.height = size; }
+      const o = loupe.getContext("2d")!;
+      const dpr = canvas.width / stageBox.width;
+      const span = (LOUPE / LOUPE_ZOOM) * dpr; // canvas px shown across the magnifier
+      o.imageSmoothingEnabled = false;
+      o.fillStyle = "#000";
+      o.fillRect(0, 0, size, size);
+      o.drawImage(canvas, (pointer.x - stageBox.left) * dpr - span / 2, (pointer.y - stageBox.top) * dpr - span / 2, span, span, 0, 0, size, size);
+      for (const [color, width] of [["rgba(0,0,0,0.7)", 4], ["#ffffff", 1.5]] as const) {
+        o.strokeStyle = color;
+        o.lineWidth = width;
+        o.beginPath();
+        o.moveTo(size / 2, size / 2 - 22); o.lineTo(size / 2, size / 2 - 5); o.moveTo(size / 2, size / 2 + 5); o.lineTo(size / 2, size / 2 + 22);
+        o.moveTo(size / 2 - 22, size / 2); o.lineTo(size / 2 - 5, size / 2); o.moveTo(size / 2 + 5, size / 2); o.lineTo(size / 2 + 22, size / 2);
+        o.stroke();
+      }
+      const above = pointer.y - box.top - LOUPE - 36;
+      loupe.style.left = `${Math.min(box.width - LOUPE - 4, Math.max(4, pointer.x - box.left - LOUPE / 2))}px`;
+      loupe.style.top = `${above >= 4 ? above : pointer.y - box.top + 36}px`;
+    };
+    const drawAids = () => { aidsDirty = false; drawRulers(); drawLoupe(); };
+
+    const paint = () => { paintScene(); drawAids(); };
+    const paintScene = () => {
       const state = store.getState();
       const { scene, image, assets } = state;
       const W = canvas.width, H = canvas.height;
@@ -202,6 +307,23 @@ export function EditorCanvas() {
       }
 
       if (state.playing) return;
+
+      // Grid: a dark line under a light one, so it shows on any photo
+      const grid = useHelpers.getState().grid;
+      if (grid !== "off") {
+        const { xs, ys } = gridLines(grid, scene.stage.w, scene.stage.h);
+        const strong = (at: number, size: number) => grid !== "thirds" && Math.abs(at - size / 2) < 0.01;
+        for (const [color, width] of [["rgba(0,0,0,0.28)", 2], ["rgba(255,255,255,0.5)", 1]] as const) {
+          for (const middle of [false, true]) {
+            ctx.beginPath();
+            xs.forEach((x) => { if (strong(x, scene.stage.w) === middle) { const px = Math.round(x * v) + 0.5; ctx.moveTo(px, 0); ctx.lineTo(px, H); } });
+            ys.forEach((y) => { if (strong(y, scene.stage.h) === middle) { const py = Math.round(y * v) + 0.5; ctx.moveTo(0, py); ctx.lineTo(W, py); } });
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width * dpr * (middle ? 1.6 : grid === "fine" ? 0.6 : 1);
+            ctx.stroke();
+          }
+        }
+      }
 
       for (const g of guides) {
         ctx.save();
@@ -296,7 +418,7 @@ export function EditorCanvas() {
         lastKey = key;
         dirty = false;
         paint();
-      }
+      } else if (aidsDirty) drawAids();
       raf = requestAnimationFrame(loop);
     };
     layout();
@@ -481,14 +603,33 @@ export function EditorCanvas() {
       dirty = true;
     };
 
-    const snapAxis = (value: number, size: number, max: number, threshold: number, axis: "x" | "y") => {
-      let best: { d: number; line: number } | null = null;
-      for (const [line, offset] of [[0, 0], [max / 2, size / 2], [max, size]]) {
-        const d = line - (value + offset);
-        if (Math.abs(d) <= threshold && (!best || Math.abs(d) < Math.abs(best.d))) best = { d, line };
+    /** Lines a moving box can align to: the stage's edges and middle, other overlays' edges and middles, the grid. */
+    const snapLines = (scene: Scene, moving: Set<string>, time: number | null): { x: SnapLine[]; y: SnapLine[] } => {
+      const { w, h } = scene.stage;
+      const x: SnapLine[] = [{ at: 0 }, { at: w / 2 }, { at: w }], y: SnapLine[] = [{ at: 0 }, { at: h / 2 }, { at: h }];
+      for (const other of scene.elements) {
+        if (moving.has(other.id) || !other.visible || (time !== null && !existsAt(other, time))) continue;
+        const o = boundsOf(other, scene);
+        x.push({ at: o.x }, { at: o.x + o.w / 2 }, { at: o.x + o.w });
+        y.push({ at: o.y }, { at: o.y + o.h / 2 }, { at: o.y + o.h });
+      }
+      const grid = gridLines(useHelpers.getState().grid, w, h);
+      grid.xs.forEach((at) => x.push({ at, quiet: true }));
+      grid.ys.forEach((at) => y.push({ at, quiet: true }));
+      return { x, y };
+    };
+    /** Pulls a box's start, middle or end onto the nearest line within reach, and shows which. */
+    const snapAxis = (value: number, size: number, threshold: number, axis: "x" | "y", lines: SnapLine[]) => {
+      let best: { d: number; line: SnapLine } | null = null;
+      for (const line of lines) {
+        for (const offset of [0, size / 2, size]) {
+          const d = line.at - (value + offset);
+          // A real edge wins over a grid line at the same distance
+          if (Math.abs(d) <= threshold && (!best || Math.abs(d) < Math.abs(best.d) - 0.01 || (Math.abs(d) <= Math.abs(best.d) && best.line.quiet && !line.quiet))) best = { d, line };
+        }
       }
       if (!best) return value;
-      guides.push({ [axis]: best.line });
+      if (!best.line.quiet) guides.push({ [axis]: best.line.at });
       return value + best.d;
     };
 
@@ -520,7 +661,19 @@ export function EditorCanvas() {
         const dx = p.x - drag.start.x, dy = p.y - drag.start.y;
         if (!drag.moved && Math.hypot(dx, dy) < 3 * p.k) return;
         drag.moved = true;
-        const shifted = new Map(drag.origins.map((origin) => [origin.id, moved(origin, round1(dx), round1(dy))]));
+        let gx = dx, gy = dy;
+        if (!e.altKey && useHelpers.getState().snap) {
+          // The group aligns as one box
+          const boxes = drag.origins.filter((origin) => origin.visible).map((origin) => boundsOf(origin, scene));
+          if (boxes.length) {
+            const x0 = Math.min(...boxes.map((box) => box.x)), y0 = Math.min(...boxes.map((box) => box.y));
+            const gw = Math.max(...boxes.map((box) => box.x + box.w)) - x0, gh = Math.max(...boxes.map((box) => box.y + box.h)) - y0;
+            const lines = snapLines(scene, new Set(drag.origins.map((origin) => origin.id)), state.preview ? state.time : null);
+            gx = snapAxis(x0 + dx, gw, 6 * p.k, "x", lines.x) - x0;
+            gy = snapAxis(y0 + dy, gh, 6 * p.k, "y", lines.y) - y0;
+          }
+        }
+        const shifted = new Map(drag.origins.map((origin) => [origin.id, moved(origin, round1(gx), round1(gy))]));
         state.setScene({ ...scene, elements: scene.elements.map((item) => shifted.get(item.id) ?? item) });
       } else if (drag.kind === "move") {
         const dx = p.x - drag.start.x, dy = p.y - drag.start.y;
@@ -528,9 +681,10 @@ export function EditorCanvas() {
         drag.moved = true;
         const b = boundsOf(drag.origin, scene);
         let nx = b.x + dx, ny = b.y + dy;
-        if (!e.altKey && !b.rot) {
-          nx = snapAxis(nx, b.w, scene.stage.w, 6 * p.k, "x");
-          ny = snapAxis(ny, b.h, scene.stage.h, 6 * p.k, "y");
+        if (!e.altKey && !b.rot && useHelpers.getState().snap) {
+          const lines = snapLines(scene, new Set([el.id]), state.preview ? state.time : null);
+          nx = snapAxis(nx, b.w, 6 * p.k, "x", lines.x);
+          ny = snapAxis(ny, b.h, 6 * p.k, "y", lines.y);
         }
         state.patch(el.id, moved(drag.origin, round1(nx - b.x), round1(ny - b.y)));
       } else if (drag.kind === "resize") {
@@ -729,6 +883,12 @@ export function EditorCanvas() {
       clearTimeout(nudgeTimer);
       clearTimeout(settleTimer);
       observer.disconnect();
+      unsubscribeHelpers();
+      host.removeEventListener("pointermove", onHover);
+      host.removeEventListener("pointerdown", onHover);
+      host.removeEventListener("pointerleave", onLeave);
+      host.removeEventListener("pointerup", onRelease);
+      host.removeEventListener("pointercancel", onRelease);
       host.removeEventListener("wheel", onWheel);
       host.removeEventListener("pointerdown", onFingerDown, true);
       host.removeEventListener("pointermove", onFingerMove, true);
@@ -744,6 +904,9 @@ export function EditorCanvas() {
   }, []);
 
   const mode = useEditor((s) => s.mode);
+  const grid = useHelpers((s) => s.grid);
+  const rulersOn = useHelpers((s) => s.rulers);
+  const change = useHelpers((s) => s.change);
   return (
     <div ref={hostRef} className="absolute inset-0 overflow-hidden">
       <canvas
@@ -751,6 +914,17 @@ export function EditorCanvas() {
         className={`absolute left-1/2 top-1/2 block select-none ${mode === "select" ? "" : "cursor-crosshair"}`}
         style={{ touchAction: "none" }}
       />
+      <canvas ref={rulersRef} className="absolute inset-0 w-full h-full pointer-events-none hidden" aria-hidden />
+      <canvas ref={loupeRef} className="absolute pointer-events-none hidden rounded-full ring-2 ring-white/90 shadow-[0_8px_24px_rgba(0,0,0,0.6)]" style={{ width: LOUPE, height: LOUPE }} aria-hidden />
+      {/* Grid and rulers: quick switches; the rest is in Canvas */}
+      <div className="absolute left-2 bottom-2 hidden lg:flex items-center rounded-full bg-raised text-fg" role="group" aria-label={t("Helpers")}>
+        <button type="button" onClick={() => change({ grid: GRIDS[(GRIDS.indexOf(grid) + 1) % GRIDS.length] })} title={t("Grid: {kind}", { kind: t(GRID_NAMES[grid]) })} aria-label={t("Grid: {kind}", { kind: t(GRID_NAMES[grid]) })} className={`w-9 h-9 grid place-items-center ${grid === "off" ? "text-fg-muted" : "text-brand"}`}>
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden><path d="M4 4h16v16H4zM9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16" /></svg>
+        </button>
+        <button type="button" onClick={() => change({ rulers: !rulersOn })} title={t("Rulers")} aria-label={t("Rulers")} aria-pressed={rulersOn} className={`w-9 h-9 grid place-items-center ${rulersOn ? "text-brand" : "text-fg-muted"}`}>
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden><path d="M3 8h18v8H3zM7 8v3M11 8v4M15 8v3M19 8v4" /></svg>
+        </button>
+      </div>
       {/* Zoom: pinch or Ctrl + wheel does the same */}
       {/* On a phone you pinch, so only the way back to 100% is shown, and only when zoomed in */}
       <div className={`absolute right-2 bottom-2 items-center rounded-full bg-raised text-fg ${zoom > 1 ? "flex" : "hidden lg:flex"}`} role="group" aria-label={t("Zoom")}>

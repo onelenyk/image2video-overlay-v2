@@ -124,7 +124,7 @@ export function Home() {
     const state = useEditor.getState();
     if (state.screen !== "editor") return; // the photo could not be read
     const built = buildTemplate(spec, state.scene.stage.w, state.scene.stage.h);
-    state.addGroup(spec.name, built.elements, built.assets);
+    state.addGroup(spec.name, built.elements, built.assets, built.sets);
     state.seek(0);
     state.play();
   };
