@@ -36,6 +36,23 @@ Math.random = __rand;
 Date.now = function () { return 0; };
 if (self.performance) self.performance.now = function () { return 0; };
 var __post = self.postMessage.bind(self);
+var ui = (function () {
+  var FONT = "px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+  var u = {};
+  u.clamp = function (v, lo, hi) { return Math.min(hi === undefined ? 1 : hi, Math.max(lo === undefined ? 0 : lo, v)); };
+  u.ease = function (k) { k = u.clamp(k); return 1 - Math.pow(1 - k, 3); };
+  u.back = function (k) { k = u.clamp(k); return 1 + 2.7 * Math.pow(k - 1, 3) + 1.7 * Math.pow(k - 1, 2); };
+  u.prog = function (t, start, seconds) { return u.ease((t - (start || 0)) / (seconds || 1)); };
+  u.font = function (ctx, size, weight) { ctx.font = (weight || 600) + " " + size + FONT; };
+  u.fit = function (ctx, text, maxWidth, size, weight) { u.font(ctx, size, weight); for (var i = 0; i < 5; i++) { var wide = ctx.measureText(text).width; if (wide <= maxWidth || size <= 6) break; size = Math.max(6, size * maxWidth / wide * 0.985); u.font(ctx, size, weight); } return size; };
+  u.text = function (ctx, text, x, y, o) { o = o || {}; ctx.save(); var size = o.size || 32; if (o.maxWidth) size = u.fit(ctx, text, o.maxWidth, size, o.weight); else u.font(ctx, size, o.weight); ctx.textAlign = o.align || "left"; ctx.textBaseline = o.baseline || "middle"; if (o.alpha !== undefined) ctx.globalAlpha *= u.clamp(o.alpha); if (o.outline) { ctx.lineWidth = size * 0.16; ctx.lineJoin = "round"; ctx.strokeStyle = o.outline; ctx.strokeText(text, x, y); } ctx.fillStyle = o.color || "#ffffff"; ctx.fillText(text, x, y); ctx.restore(); return size; };
+  u.card = function (ctx, x, y, w, h, o) { o = o || {}; var r = Math.min(o.radius === undefined ? 22 : o.radius, w / 2, h / 2); ctx.save(); if (o.alpha !== undefined) ctx.globalAlpha *= u.clamp(o.alpha); if (o.shadow !== false) { ctx.shadowColor = o.glow || "rgba(0,0,0,0.38)"; ctx.shadowBlur = o.glow ? 34 : 30; ctx.shadowOffsetY = o.glow ? 0 : 10; } var fill = o.fill || "rgba(17,24,39,0.9)"; if (o.fill2) { var g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, fill); g.addColorStop(1, o.fill2); fill = g; } ctx.fillStyle = fill; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); ctx.shadowColor = "transparent"; if (o.edge !== false) { ctx.strokeStyle = o.edge || "rgba(255,255,255,0.16)"; ctx.lineWidth = 1.5; ctx.stroke(); } ctx.restore(); };
+  u.pill = function (ctx, text, cx, cy, o) { o = o || {}; var size = o.size || 30; u.font(ctx, size, o.weight || 600); var pad = size * 0.7, w = Math.min(o.maxWidth || 1e9, ctx.measureText(text).width + pad * 2), h = size * 1.9; u.card(ctx, cx - w / 2, cy - h / 2, w, h, { radius: h / 2, fill: o.fill, edge: o.edge, alpha: o.alpha, shadow: o.shadow }); u.text(ctx, text, cx, cy + size * 0.04, { size: size, weight: o.weight || 600, color: o.color, align: "center", maxWidth: w - pad * 2, alpha: o.alpha }); return w; };
+  u.ring = function (ctx, cx, cy, r, value, o) { o = o || {}; var lw = o.width || r * 0.2; ctx.save(); ctx.lineCap = "round"; ctx.lineWidth = lw; ctx.strokeStyle = o.track || "rgba(255,255,255,0.14)"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); if (value > 0) { ctx.strokeStyle = o.color || "#ffd60a"; if (o.glow !== false) { ctx.shadowColor = o.color || "#ffd60a"; ctx.shadowBlur = lw; } ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * u.clamp(value)); ctx.stroke(); } ctx.restore(); };
+  u.path = function (ctx, points, k, o) { o = o || {}; k = u.clamp(k); var len = [], total = 0, i; for (i = 1; i < points.length; i++) { var d = Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]); len.push(d); total += d; } var run = total * k, head = points[0]; ctx.save(); ctx.lineWidth = o.width || 8; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = o.color || "#0a84ff"; if (o.glow !== false) { ctx.shadowColor = o.color || "#0a84ff"; ctx.shadowBlur = 16; } ctx.beginPath(); ctx.moveTo(points[0][0], points[0][1]); for (i = 0; i < len.length; i++) { if (run >= len[i]) { ctx.lineTo(points[i + 1][0], points[i + 1][1]); head = points[i + 1]; run -= len[i]; } else { var f = len[i] ? run / len[i] : 0; head = [points[i][0] + (points[i + 1][0] - points[i][0]) * f, points[i][1] + (points[i + 1][1] - points[i][1]) * f]; ctx.lineTo(head[0], head[1]); break; } } if (k > 0) ctx.stroke(); ctx.restore(); return { x: head[0], y: head[1] }; };
+  u.dots = function (ctx, cx, cy, count, active, o) { o = o || {}; var gap = o.gap || 22, r = o.size || 5, x = cx - gap * (count - 1) / 2, i; ctx.save(); for (i = 0; i < count; i++) { ctx.fillStyle = i === active ? (o.color || "#ffffff") : "rgba(255,255,255,0.35)"; ctx.beginPath(); if (i === active) ctx.roundRect(x + i * gap - r * 2.2, cy - r, r * 4.4, r * 2, r); else ctx.arc(x + i * gap, cy, r, 0, Math.PI * 2); ctx.fill(); } ctx.restore(); };
+  return u;
+})();
 `;
 // One line, so that a line number in an error is the user's own line.
 const PRELUDE_LINES = PRELUDE.split("\n").length - 1;
@@ -44,6 +61,17 @@ const PRELUDE_LINES = PRELUDE.split("\n").length - 1;
 const RUNTIME = `
 ;(function () {
   var canvas = new OffscreenCanvas(1, 1), ctx = canvas.getContext("2d");
+  // The box is w by h units whatever the bitmap's size. Code that resets the transform (a common habit)
+  // must come back to that scale, not to raw pixels, so the three transform setters are made relative to it.
+  var sx = 1, sy = 1;
+  var rawSet = ctx.setTransform.bind(ctx), rawGet = ctx.getTransform.bind(ctx);
+  ctx.setTransform = function (a, b, c, d, e, f) {
+    if (a && typeof a === "object") { f = a.f; e = a.e; d = a.d; c = a.c; b = a.b; a = a.a; }
+    if (a === undefined) { a = 1; b = 0; c = 0; d = 1; e = 0; f = 0; }
+    rawSet(a * sx, b * sy, c * sx, d * sy, e * sx, f * sy);
+  };
+  ctx.resetTransform = function () { rawSet(sx, 0, 0, sy, 0, 0); };
+  ctx.getTransform = function () { var m = rawGet(); return new DOMMatrix([m.a / sx, m.b / sy, m.c / sx, m.d / sy, m.e / sx, m.f / sy]); };
   var declared = null;
   try { declared = typeof params === "object" && params ? JSON.parse(JSON.stringify(params)) : null; } catch (e) { declared = null; }
   var ok = typeof draw === "function";
@@ -51,7 +79,8 @@ const RUNTIME = `
     var m = e.data;
     try {
       canvas.width = m.pw; canvas.height = m.ph; // also clears it and resets the drawing state
-      ctx.setTransform(m.pw / m.w, 0, 0, m.ph / m.h, 0, 0);
+      sx = m.pw / m.w; sy = m.ph / m.h;
+      ctx.resetTransform();
       __seed = 1;
       var p = {};
       if (declared) for (var name in declared) if (declared[name] && typeof declared[name] === "object") p[name] = declared[name].default;

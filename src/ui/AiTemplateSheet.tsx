@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AiError, DEFAULT_PROVIDER, loadKey, saveKey, type AiFailure } from "../ai/provider";
+import { AiError, DEFAULT_PROVIDER, loadEffort, loadKey, saveEffort, saveKey, type AiFailure, type AiProgress } from "../ai/provider";
 import { draftTemplate, type AiDraft } from "../ai/template";
 import { useEditor } from "../editor/store";
 import { buildTemplate, type Built } from "../engine/template";
@@ -15,6 +15,12 @@ const FAILURES: Record<AiFailure, Msg> = {
   busy: m("DeepSeek is busy right now. Try again in a moment."),
   network: m("Could not reach DeepSeek. Check the connection."),
   answer: m("The answer was not a usable template. Try again, or describe it differently."),
+  length: m("The model thought for too long and ran out of room for the answer. Try again, or choose Quick."),
+};
+const EFFORTS: Record<string, { name: Msg; note: Msg }> = {
+  quick: { name: m("Quick"), note: m("About 10 seconds.") },
+  thoughtful: { name: m("Thoughtful"), note: m("About a minute: the model thinks the design through first. Usually more polished.") },
+  best: { name: m("Pro model"), note: m("The larger model: over a minute and several times the price. Not always better.") },
 };
 const IDEAS: Msg[] = [
   m("Three steps of a recipe, numbered, with a short line each"),
@@ -39,6 +45,15 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
   const [failure, setFailure] = useState<AiFailure | null>(null);
   const [saved, setSaved] = useState(false);
   const [rich, setRich] = useState(true);
+  const [effort, setEffort] = useState(() => loadEffort(provider));
+  const [waited, setWaited] = useState(0);
+  const [progress, setProgress] = useState<AiProgress | null>(null);
+  useEffect(() => {
+    if (!busy) return;
+    const started = Date.now();
+    const timer = window.setInterval(() => setWaited(Math.round((Date.now() - started) / 1000)), 1000);
+    return () => { clearInterval(timer); setWaited(0); };
+  }, [busy]);
   const running = useRef<AbortController | null>(null);
   useEffect(() => () => running.current?.abort(), []);
 
@@ -61,9 +76,10 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
     const control = new AbortController();
     running.current = control;
     setBusy(true);
+    setProgress(null);
     setFailure(null);
     try {
-      const next = await draftTemplate(provider, key, text, stage.w / stage.h, rich, previous, control.signal);
+      const next = await draftTemplate(provider, key, effort, text, stage.w / stage.h, rich, previous, control.signal, setProgress);
       setDraft(next);
       setChange("");
       setSaved(false);
@@ -78,6 +94,10 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
   };
 
   const coded = draft ? draft.spec.parts.filter((part) => part.kind === "code").length : 0;
+  // What to say while waiting: connecting, thinking, then the answer being written
+  const status = !progress ? t("Sending the request… {n} s", { n: waited })
+    : progress.phase === "thinking" ? t("The model is thinking… {n} s", { n: waited })
+    : t("Writing the template… {chars} characters, {n} s", { chars: progress.chars, n: waited });
   const needsKey = !key || editingKey;
   return (
     <Sheet title={t("Template with AI")} onClose={onClose}>
@@ -105,7 +125,15 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
               ))}
             </div>
             <Toggle label={t("Lively: let the AI write code for motion")} checked={rich} onChange={setRich} />
-            <Button primary disabled={!request.trim() || busy} onClick={() => void run(request)} className="w-full">{busy ? t("Drawing the template…") : t("Create template")}</Button>
+            <div>
+              <div className="grid grid-cols-3 gap-1 p-1 rounded-control bg-chip-hover" role="group" aria-label={t("How hard the AI thinks")}>
+                {provider.efforts.map((item) => (
+                  <button key={item.id} type="button" aria-pressed={effort.id === item.id} onClick={() => { setEffort(item); saveEffort(provider, item); }} className={`h-9 rounded-[7px] text-[13px] font-semibold transition-colors ${effort.id === item.id ? "bg-fg text-ink" : "text-fg-muted hover:text-fg"}`}>{t(EFFORTS[item.id]?.name ?? "Quick")}</button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[12px] leading-snug text-fg-subtle">{t(EFFORTS[effort.id]?.note ?? "About 10 seconds.")}</p>
+            </div>
+            <Button primary disabled={!request.trim() || busy} onClick={() => void run(request)} className="w-full">{busy ? status : t("Create template")}</Button>
             <p className="text-[12px] leading-snug text-fg-subtle">{t("The model does not see your photo: it lays things out by your description, and you drag them into place afterwards.")}</p>
           </section>
         ) : built && (
@@ -127,6 +155,7 @@ export function AiTemplateSheet({ onClose, onAdd }: { onClose: () => void; onAdd
               <input value={change} onChange={(e) => setChange(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void run(change, draft); }} maxLength={500} placeholder={t("What to change, e.g. “make the labels shorter”")} aria-label={t("What to change")} className={`${field} h-11 min-w-0`} />
               <Button disabled={!change.trim() || busy} onClick={() => void run(change, draft)} className="shrink-0 !bg-chip-hover hover:!bg-chip-active">{busy ? "…" : t("Change")}</Button>
             </div>
+            {busy && <p role="status" className="text-[12px] text-fg-muted">{status}</p>}
             <button type="button" disabled={busy} onClick={() => { setDraft(null); setFailure(null); }} className="h-9 text-[13px] font-semibold text-fg-muted hover:text-fg disabled:opacity-40">{t("Start over")}</button>
           </section>
         )}
