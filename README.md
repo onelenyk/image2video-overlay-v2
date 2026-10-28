@@ -2,7 +2,7 @@
 
 A photo-first editor for making short highlight videos: pick a plan or photo, mark things on it, animate them, sketch while you talk, export an MP4. Built mobile-first; works the same with a mouse.
 
-**[Live Demo](https://onelenyk.github.io/image2video-overlay/)**
+**[Live Demo](https://onelenyk.github.io/image2video-overlay-v2/)**
 
 ## How it works
 

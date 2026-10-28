@@ -89,7 +89,7 @@ export function HelpSheet({ onClose }: { onClose: () => void }) {
         <p className="text-label text-fg-muted">
           {t("Plan Highlighter is open source under the MIT license.")}
         </p>
-        <a href="https://github.com/onelenyk/image2video-overlay" target="_blank" rel="noreferrer" className="h-11 w-fit flex items-center text-label font-semibold text-brand underline underline-offset-4">{t("Source on GitHub")}</a>
+        <a href="https://github.com/onelenyk/image2video-overlay-v2" target="_blank" rel="noreferrer" className="h-11 w-fit flex items-center text-label font-semibold text-brand underline underline-offset-4">{t("Source on GitHub")}</a>
       </Section>
     </Sheet>
   );
